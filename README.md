@@ -64,7 +64,17 @@ O terminal fica ocupado enquanto a API roda (`Ctrl+C` para parar). Com ela no ar
 - Documentação interativa: http://localhost:5080/scalar
 - Health check: http://localhost:5080/api/health
 
-> As instruções do front-end serão adicionadas a cada etapa.
+### 3. App (front-end)
+
+```bash
+cd frontend
+npm install   # só na primeira vez (ou quando mudarem as dependências)
+npm run dev   # sobe o app em http://localhost:5173
+```
+
+- **No celular:** com o celular no mesmo Wi-Fi do PC, abra o endereço da linha `Network:` mostrada pelo `npm run dev` (ex.: `http://192.168.x.x:5173`).
+- `npm run build`: checa os tipos e gera a versão de produção em `dist/`.
+- `npm run lint`: verifica o código.
 
 ## Fluxo de trabalho (Git)
 
