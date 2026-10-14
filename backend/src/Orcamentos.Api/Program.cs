@@ -17,6 +17,14 @@ builder.Services.AddOpenApi();
 builder.Services.AddInfraestrutura(builder.Configuration);
 builder.Services.AddAutenticacao();
 
+// CORS: quais sites (origens) o NAVEGADOR deve deixar chamar esta API.
+// Em produção, a origem do front-end (ex.: https://app.vercel.app) vem da configuração.
+var origensPermitidas = builder.Configuration.GetSection("Cors:OrigensPermitidas").Get<string[]>() ?? [];
+builder.Services.AddCors(cors => cors.AddDefaultPolicy(politica => politica
+    .WithOrigins(origensPermitidas)
+    .AllowAnyHeader()
+    .AllowAnyMethod()));
+
 var app = builder.Build();
 
 // ===== Comandos de terminal (executam e encerram, sem subir o servidor web) =====
@@ -24,6 +32,7 @@ if (ehComando)
     return await CriarUsuarioComando.ExecutarAsync(app.Services);
 
 // ===== 2. Pipeline: o caminho que cada requisição HTTP percorre =====
+app.UseCors();             // antes da autenticação: a "pré-consulta" do navegador (OPTIONS) não leva token
 app.UseAuthentication();   // lê o token do cabeçalho Authorization e descobre QUEM é o usuário
 app.UseAuthorization();    // decide se esse usuário PODE acessar o endpoint
 

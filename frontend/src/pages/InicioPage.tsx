@@ -10,7 +10,7 @@ export function InicioPage() {
       {/* Ação principal do app: grande e fácil de tocar no celular */}
       <Link
         to="/orcamentos/novo"
-        className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-marca-600 text-lg font-semibold text-white shadow-sm hover:bg-marca-700 active:scale-[0.98] sm:w-auto sm:px-8"
+        className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-marca-600 text-lg font-semibold text-white shadow-sm hover:bg-marca-700 active:scale-[0.98] sm:inline-flex sm:w-auto sm:px-8"
       >
         <Plus className="size-6" aria-hidden />
         Novo orçamento

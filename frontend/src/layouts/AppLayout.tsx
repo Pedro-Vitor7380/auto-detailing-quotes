@@ -1,4 +1,6 @@
+import { LogOut } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
+import { useAuth } from '../auth/contexto'
 import { itensDeNavegacao } from './navegacao'
 
 /**
@@ -8,6 +10,8 @@ import { itensDeNavegacao } from './navegacao'
  * O conteúdo de cada página aparece no <Outlet />.
  */
 export function AppLayout() {
+  const { usuario, sair } = useAuth()
+
   return (
     <div className="min-h-dvh md:flex">
       {/* Menu lateral: só aparece a partir de md (computador/tablet) */}
@@ -30,12 +34,34 @@ export function AppLayout() {
             </NavLink>
           ))}
         </nav>
+
+        {/* mt-auto: empurra este bloco para o fim do menu lateral */}
+        <div className="mt-auto border-t border-slate-200 p-4">
+          <p className="truncate text-sm font-medium">{usuario?.nome}</p>
+          <p className="truncate text-xs text-slate-500">{usuario?.email}</p>
+          <button
+            onClick={sair}
+            className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-red-600"
+          >
+            <LogOut className="size-4" aria-hidden />
+            Sair
+          </button>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Barra superior: só no celular */}
         <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
-          <div className="flex h-14 items-center text-lg font-bold text-marca-700">Orçamentos</div>
+          <div className="flex h-14 items-center justify-between">
+            <span className="text-lg font-bold text-marca-700">Orçamentos</span>
+            <button
+              onClick={sair}
+              aria-label="Sair"
+              className="-mr-2 flex size-11 items-center justify-center rounded-lg text-slate-500 active:bg-slate-100"
+            >
+              <LogOut className="size-5" aria-hidden />
+            </button>
+          </div>
         </header>
 
         {/* pb-24 no celular: espaço para o conteúdo não ficar escondido atrás da barra inferior */}
