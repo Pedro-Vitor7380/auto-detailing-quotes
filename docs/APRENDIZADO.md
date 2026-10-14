@@ -141,7 +141,7 @@ A API não sabe onde o banco está. Ela recebe o endereço **por configuração*
 
 ## Passo 3 — Estrutura do back-end .NET
 
-### Solution (`Oficina.slnx`) e projetos (`.csproj`)
+### Solution (`Orcamentos.slnx`) e projetos (`.csproj`)
 - **Projeto (`.csproj`):** uma unidade de código que compila para uma DLL ou um executável. Lista os pacotes e os outros projetos de que depende.
 - **Solution (`.slnx`):** agrupa os projetos para compilar e abrir todos juntos. O `.slnx` é o formato novo, em XML legível, que virou padrão no .NET 10. O antigo era o `.sln`.
 - **Onde:** `backend/`
@@ -149,17 +149,17 @@ A API não sabe onde o banco está. Ela recebe o endereço **por configuração*
 ### Os 4 projetos e quem depende de quem
 
 ```
-Oficina.Api ──────────► Oficina.Infrastructure ──► Oficina.Domain
+Orcamentos.Api ──────────► Orcamentos.Infrastructure ──► Orcamentos.Domain
      └──────────────────────────────────────────────►    ▲
-Oficina.Domain.Tests ────────────────────────────────────┘
+Orcamentos.Domain.Tests ────────────────────────────────────┘
 ```
 
 | Projeto | Responsabilidade | Template |
 |---|---|---|
-| `Oficina.Domain` | Entidades e regras de negócio (ex.: "orçamento aprovado não pode ser editado"). **Não depende de ninguém.** | `classlib` |
-| `Oficina.Infrastructure` | Detalhes técnicos: banco de dados (EF Core) e PDF. | `classlib` |
-| `Oficina.Api` | Recebe as requisições HTTP, faz a autenticação e junta tudo. É o executável. | `webapi` |
-| `Oficina.Domain.Tests` | Testes automatizados das regras do Domínio. | `xunit` |
+| `Orcamentos.Domain` | Entidades e regras de negócio (ex.: "orçamento aprovado não pode ser editado"). **Não depende de ninguém.** | `classlib` |
+| `Orcamentos.Infrastructure` | Detalhes técnicos: banco de dados (EF Core) e PDF. | `classlib` |
+| `Orcamentos.Api` | Recebe as requisições HTTP, faz a autenticação e junta tudo. É o executável. | `webapi` |
+| `Orcamentos.Domain.Tests` | Testes automatizados das regras do Domínio. | `xunit` |
 
 - **Por que separar:** a regra de negócio é a parte mais valiosa e a que menos deveria mudar. Se um dia trocarmos o PostgreSQL por outro banco, ou a API por outra tecnologia, o Domínio continua igual.
 - **O compilador garante a regra:** o Domínio não tem referência para a Infraestrutura, então é **impossível** usar o banco dentro dele. O código nem compila.
@@ -203,9 +203,74 @@ Ele tem três partes, e essa ordem vale para toda API ASP.NET Core:
 - Ou seja: o HTTPS existe, só não é responsabilidade da API.
 
 ### Arquivo `.http`
-- `Oficina.Api.http` guarda requisições de teste prontas. No VS Code, com a extensão **REST Client**, um clique em "Send Request" envia a requisição. Ele vai substituir o Postman nos testes do login (passo 7).
+- `Orcamentos.Api.http` guarda requisições de teste prontas. No VS Code, com a extensão **REST Client**, um clique em "Send Request" envia a requisição. Ele vai substituir o Postman nos testes do login (passo 7).
 
 ### `dotnet build`, `dotnet run`, `dotnet test`
 - `dotnet build`: compila tudo. **Sempre rode antes de commitar.**
-- `dotnet run --project src/Oficina.Api`: compila e sobe a API.
+- `dotnet run --project src/Orcamentos.Api`: compila e sobe a API.
 - `dotnet test`: roda os testes. Por enquanto diz "nenhum teste disponível", porque eles chegam na semana 3.
+
+---
+
+## Passo 4 — Primeiras entidades do Domínio
+
+### Conflito de nomes: por que os projetos viraram `Orcamentos.*`
+- Os projetos se chamavam `Oficina.Api`, `Oficina.Domain`... e queríamos uma **classe** chamada `Oficina`.
+- O C# procura os nomes de "dentro para fora". Ao encontrar a palavra `Oficina`, ele acha primeiro o **namespace** `Oficina` e reclama: `error CS0118: "Oficina" é um namespace, mas é usado como um tipo`.
+- **Testamos antes de decidir:** criamos um arquivo temporário que usava a classe, vimos o erro acontecer e apagamos o arquivo.
+- **Solução escolhida:** renomear os projetos para `Orcamentos.*`, o que o app faz, e manter `Oficina` como nome da entidade, a palavra do negócio.
+- **Regra da Microsoft:** não dê a um tipo o mesmo nome de um namespace.
+- **`git mv`:** renomeia e avisa o Git, que mostra `R` (*renamed*) e preserva o histórico do arquivo.
+- **Commit separado:** a renomeação foi para um commit só dela. Misturar "mudei nomes" com "criei código novo" deixa o histórico difícil de ler.
+
+### Entidade
+- **O que é:** um objeto do negócio com **identidade própria**. Dois usuários com o mesmo nome continuam sendo pessoas diferentes, porque o que os distingue é o `Id`.
+- **Onde:** `backend/src/Orcamentos.Domain/Entidades/`
+
+### Classe base `Entidade` e herança
+- Todas as entidades têm `Id` e `CriadoEm`. Em vez de repetir em cada classe, elas **herdam** de `Entidade` (`class Oficina : Entidade`).
+- `abstract`: não dá para criar uma "Entidade" genérica com `new Entidade()`, só as classes concretas (`Oficina`, `Usuario`).
+
+### `EntidadeDaOficina` e `OficinaId` (multi-oficina)
+- As entidades que **pertencem** a uma oficina (usuário, cliente, serviço, orçamento) herdam de `EntidadeDaOficina`, que obriga a informar um `OficinaId` válido.
+- **Por quê:** quando o app atender várias oficinas, cada dado já sabe a quem pertence. No passo 5, o banco vai usar isso para filtrar os dados automaticamente.
+- A própria `Oficina` herda só de `Entidade`, porque ela não pertence a ninguém. Ela **é** a dona.
+
+### Por que `Guid` (e não número sequencial) como `Id`
+- `Guid`: um identificador de 128 bits, praticamente impossível de repetir (ex.: `0199e3a4-...`).
+- **Vantagens:**
+  - **Não é adivinhável.** Com ids 1, 2, 3, alguém poderia tentar `/orcamentos/4` para ver dados de outro. Com Guid isso não funciona. A proteção real continua sendo a autenticação, mas é uma camada a mais.
+  - Pode ser **gerado no código**, antes de salvar no banco.
+  - Não conflita quando os dados de várias oficinas se misturam.
+- **`Guid.CreateVersion7()`** (novo no .NET 9): um Guid que começa pela **data e hora**, então os ids novos ficam "em ordem". Isso deixa os índices do banco mais eficientes que com o `Guid.NewGuid()` totalmente aleatório.
+- O **número do orçamento** que o cliente vê (`ORC-2026-0001`) será **outro campo**, sequencial. O `Id` é técnico, o número é para humanos.
+
+### Encapsulamento: `private set` e métodos
+- As propriedades têm `{ get; private set; }`: **qualquer um lê, mas só a própria classe altera.**
+- Para mudar algo, usa-se um **método** (`AlterarEmail(...)`), e o método **valida** antes de alterar.
+- **Por quê:** é impossível existir um `Usuario` com e-mail inválido no sistema. Se a regra estivesse espalhada pelas telas e endpoints, bastaria esquecer em um lugar.
+- Isso se chama **invariante**: uma regra que é **sempre** verdadeira para o objeto.
+
+### Construtores
+- **Construtor público** `new Usuario(oficinaId, nome, email, senhaHash)`: obriga a informar tudo que é necessário e valida já na criação.
+- **Construtor privado vazio** `private Usuario() { }`: o Entity Framework precisa dele para recriar o objeto a partir do banco. É `private` para que o nosso código não consiga criar um usuário vazio.
+- **`= null!`:** diz ao compilador que o valor vai ser preenchido (pelo construtor ou pelo EF), mesmo que ele não consiga provar isso sozinho.
+
+### `RegraDeNegocioException`
+- Uma exceção **nossa**, lançada quando uma regra de negócio é violada.
+- **Por que uma classe própria:** a API vai poder diferenciar "o usuário digitou algo errado" (responder **400** com a mensagem) de "deu um bug" (responder **500**, sem expor detalhes).
+- `class RegraDeNegocioException(string mensagem) : Exception(mensagem);` usa **construtor primário** (C# 12): uma forma curta de declarar o construtor.
+
+### Senha: o Domínio só conhece o **hash**
+- O `Usuario` guarda `SenhaHash`, **nunca a senha**.
+- **Hash:** uma transformação de mão única. Dá para conferir se uma senha bate com o hash, mas não dá para descobrir a senha a partir dele. Se o banco vazar, as senhas não vazam junto.
+- Gerar o hash é um detalhe técnico (biblioteca de criptografia), então fica fora do Domínio, no passo 7.
+
+### Testes automatizados (xUnit)
+- **O que é:** código que testa o código. Roda com `dotnet test` em segundos e avisa se uma mudança quebrou uma regra.
+- **`[Fact]`:** um teste com um único cenário.
+- **`[Theory]` + `[InlineData]`:** o **mesmo** teste rodado com vários dados de entrada. No nosso caso, 4 e-mails inválidos diferentes.
+- **Padrão AAA:** *Arrange* (preparar), *Act* (agir), *Assert* (verificar).
+- **Nome do teste:** `Metodo_Cenario_ResultadoEsperado`. Quando falhar, o nome já diz o que quebrou.
+- **`Assert.Throws<T>(...)`:** verifica que o código **lança** a exceção esperada. Testar o caminho de erro é tão importante quanto testar o caminho feliz.
+- **Onde:** `backend/tests/Orcamentos.Domain.Tests/Entidades/`
