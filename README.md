@@ -42,6 +42,8 @@ dotnet build                          # compila todos os projetos
 dotnet run --project src/Oficina.Api  # sobe a API em http://localhost:5080
 ```
 
+O terminal fica ocupado enquanto a API roda (`Ctrl+C` para parar). Com ela no ar, abra no navegador:
+
 - Documentação interativa: http://localhost:5080/scalar
 - Health check: http://localhost:5080/api/health
 

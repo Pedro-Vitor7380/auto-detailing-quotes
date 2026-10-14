@@ -188,7 +188,13 @@ Ele tem três partes, e essa ordem vale para toda API ASP.NET Core:
 - A variável `ASPNETCORE_ENVIRONMENT` diz em que ambiente a API está rodando.
 - O `Program.cs` só mostra o Scalar `if (app.Environment.IsDevelopment())`, porque **não queremos expor a documentação interna em produção**.
 - **Na prática:** testando sem o perfil de desenvolvimento, o `/scalar` deu **404**, porque a API rodava como *Production*. Com `Development`, funcionou. Isso mostra que o comportamento muda por configuração, não por código.
-- O `launchSettings.json` define o perfil usado pelo `dotnet run`: porta `5080`, ambiente `Development` e abrir o navegador direto no `/scalar`. **Esse arquivo só existe no desenvolvimento.** Em produção, o ambiente vem de variável de ambiente do servidor.
+- O `launchSettings.json` define o perfil usado pelo `dotnet run`: porta `5080` e ambiente `Development`. **Esse arquivo só existe no desenvolvimento.** Em produção, o ambiente vem de variável de ambiente do servidor.
+- **Pegadinha:** a opção `launchBrowser` (abrir o navegador sozinho) **só funciona em IDEs** (Visual Studio, debugger do VS Code). O `dotnet run` pelo terminal **ignora** essa opção. Com `dotnet run`, abra o navegador manualmente em `http://localhost:5080/scalar`.
+
+### A API precisa estar rodando para ser testada
+- `dotnet run` **ocupa o terminal** enquanto a API está no ar. A última linha é `Application started. Press Ctrl+C to shut down.` e o terminal parece "travado", mas é assim mesmo: a API está esperando requisições.
+- Fechar esse terminal ou apertar `Ctrl+C` **desliga a API**. Aí o navegador e o `.http` dão erro de conexão (`ECONNREFUSED`).
+- Para usar comandos enquanto a API roda, abra **outro terminal** (no VS Code, o botão `+` no painel do terminal).
 
 ### Por que tiramos o `UseHttpsRedirection`
 - O template redireciona HTTP → HTTPS. No nosso caso:
