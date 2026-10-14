@@ -38,3 +38,55 @@ Organizado pelos passos do desenvolvimento.
 ### Commits pequenos e descritivos
 - Cada passo do projeto vira **um commit**. A mensagem descreve **o que** mudou e, se não for óbvio, **por quê**.
 - Commits pequenos são fáceis de entender, revisar e desfazer.
+
+### Branches e GitHub Flow
+- **O que é uma branch:** uma linha paralela de desenvolvimento. Você trabalha nela sem afetar a `main`.
+- **Modelo que usamos (GitHub Flow):**
+  1. `git switch -c feat/nome-do-passo`: cria a branch e entra nela.
+  2. Faz os commits.
+  3. `git push -u origin feat/nome-do-passo`: envia a branch para o GitHub.
+  4. Abre um **Pull Request (PR)**: um pedido para juntar a branch na `main`, onde dá para revisar o que mudou.
+  5. Faz o **merge** do PR e apaga a branch.
+  6. No PC: `git switch main` e `git pull` para trazer a `main` atualizada.
+- **Por que usamos:** a `main` vai ser publicada automaticamente em produção (passo 11), então ela precisa estar sempre funcionando. A branch isola experimentos, e o PR serve como revisão do passo e como portfólio.
+- **Por que NÃO usamos Git Flow** (`develop`, `release`, `hotfix`): foi feito para equipes com versões programadas. Para um dev solo, é burocracia sem ganho.
+- **Prefixos de nome:** `feat/` para funcionalidade nova, `fix/` para correção, `docs/` para documentação, `chore/` para manutenção e configuração.
+
+---
+
+## Passo 2 — PostgreSQL com Docker
+
+### Docker, imagem e container
+- **Imagem:** um "molde" pronto com um programa e tudo de que ele precisa. Usamos `postgres:17-alpine`, que é o PostgreSQL 17 sobre o Alpine Linux, uma versão bem pequena.
+- **Container:** uma instância rodando a partir da imagem, isolada do Windows. É como uma mini-máquina descartável.
+- **Por que usamos:** não precisamos instalar o PostgreSQL no Windows, a versão é a mesma em qualquer máquina e dá para apagar e recriar o banco em segundos.
+
+### Docker Compose (`docker-compose.yml`)
+- **O que é:** um arquivo que descreve os containers do projeto, para subir tudo com um comando, em vez de digitar um `docker run` enorme.
+- **Partes do nosso arquivo:**
+  - `image`: qual imagem usar. Fixamos a versão `17` para não mudar sozinha.
+  - `environment`: variáveis que configuram o PostgreSQL (nome do banco, usuário, senha e fuso horário).
+  - `ports: "5432:5432"`: liga a porta 5432 do Windows à porta 5432 do container. É assim que a API vai alcançar o banco.
+  - `volumes`: veja abaixo.
+  - `healthcheck`: o Docker roda `pg_isready` a cada 5s para saber se o banco **já aceita conexões**. "Container ligado" não significa "banco pronto".
+  - `restart: unless-stopped`: o banco volta sozinho quando o Docker reinicia.
+- **Comandos:**
+  - `docker compose up -d`: sobe em segundo plano (`-d` = *detached*).
+  - `docker compose ps`: mostra o status.
+  - `docker compose logs db`: mostra os logs do banco.
+  - `docker compose down`: para e remove o container, mas **mantém os dados**.
+  - `docker compose down -v`: remove também o volume e **apaga todos os dados**.
+
+### Volume
+- **O problema:** o container é descartável. Se for removido, tudo que estava dentro dele se perde.
+- **A solução:** o volume `oficina-db-data` guarda os arquivos do banco **fora** do container, gerenciados pelo Docker. Você pode recriar o container que os dados continuam lá.
+
+### Arquivo `.env` e `.env.example`
+- **`.env`:** guarda os valores reais (a senha do banco). **Está no `.gitignore`.** O Docker Compose lê esse arquivo automaticamente e substitui `${POSTGRES_PASSWORD}` no `docker-compose.yml`.
+- **`.env.example`:** um modelo **sem senha real**, que vai para o Git. Quem clona o projeto copia para `.env` e preenche.
+- **Por que usamos:** é um padrão do mercado para separar **configuração** (no Git) de **segredos** (fora do Git).
+- A senha local foi gerada com `openssl rand -hex 16` (32 caracteres aleatórios).
+
+### Acessar o banco pelo terminal
+- `docker exec -it oficina-db psql -U oficina -d oficina` abre o `psql` (o terminal do PostgreSQL) **dentro do container**, sem precisar instalar nada no Windows.
+- Dentro do `psql`: `\dt` lista as tabelas, `\q` sai.
