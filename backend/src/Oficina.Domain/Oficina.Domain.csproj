@@ -1,0 +1,4 @@
+<!-- Domínio: entidades e regras de negócio. Não deve depender de nenhum outro projeto nem de pacotes de banco/web. -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+</Project>

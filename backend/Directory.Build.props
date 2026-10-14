@@ -1,0 +1,13 @@
+<!--
+  Configurações aplicadas automaticamente a TODOS os projetos dentro de backend/.
+  Assim cada .csproj fica só com o que é específico dele.
+-->
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Avisos de possível null viram erro: obriga a tratar null em vez de ignorar. -->
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+  </PropertyGroup>
+</Project>

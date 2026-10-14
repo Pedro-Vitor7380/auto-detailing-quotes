@@ -136,3 +136,70 @@ Cada parte vai para um serviço gratuito na internet, e o PC não precisa mais e
 A API não sabe onde o banco está. Ela recebe o endereço **por configuração**: no PC, o endereço aponta para o Docker; em produção, aponta para o Neon. O mesmo vale para o front-end e o endereço da API.
 
 **O código é o mesmo, só a configuração muda.** Esse princípio vem de um conjunto de boas práticas para aplicações web chamado *The Twelve-Factor App* (fator III, "Config").
+
+---
+
+## Passo 3 — Estrutura do back-end .NET
+
+### Solution (`Oficina.slnx`) e projetos (`.csproj`)
+- **Projeto (`.csproj`):** uma unidade de código que compila para uma DLL ou um executável. Lista os pacotes e os outros projetos de que depende.
+- **Solution (`.slnx`):** agrupa os projetos para compilar e abrir todos juntos. O `.slnx` é o formato novo, em XML legível, que virou padrão no .NET 10. O antigo era o `.sln`.
+- **Onde:** `backend/`
+
+### Os 4 projetos e quem depende de quem
+
+```
+Oficina.Api ──────────► Oficina.Infrastructure ──► Oficina.Domain
+     └──────────────────────────────────────────────►    ▲
+Oficina.Domain.Tests ────────────────────────────────────┘
+```
+
+| Projeto | Responsabilidade | Template |
+|---|---|---|
+| `Oficina.Domain` | Entidades e regras de negócio (ex.: "orçamento aprovado não pode ser editado"). **Não depende de ninguém.** | `classlib` |
+| `Oficina.Infrastructure` | Detalhes técnicos: banco de dados (EF Core) e PDF. | `classlib` |
+| `Oficina.Api` | Recebe as requisições HTTP, faz a autenticação e junta tudo. É o executável. | `webapi` |
+| `Oficina.Domain.Tests` | Testes automatizados das regras do Domínio. | `xunit` |
+
+- **Por que separar:** a regra de negócio é a parte mais valiosa e a que menos deveria mudar. Se um dia trocarmos o PostgreSQL por outro banco, ou a API por outra tecnologia, o Domínio continua igual.
+- **O compilador garante a regra:** o Domínio não tem referência para a Infraestrutura, então é **impossível** usar o banco dentro dele. O código nem compila.
+- Os comandos usados foram `dotnet new <template>`, `dotnet sln add` e `dotnet add reference`.
+
+### `Directory.Build.props`
+- **O que é:** um arquivo que o MSBuild (o sistema de build do .NET) aplica **automaticamente a todos os projetos** da pasta e das subpastas.
+- **Por que usamos:** em vez de repetir `net10.0`, `Nullable` etc. em 4 arquivos, a configuração fica num lugar só.
+- **`Nullable` + `WarningsAsErrors=nullable`:** o C# avisa quando algo pode ser `null` e você não tratou. Transformamos esses avisos em **erro**, porque o `NullReferenceException` é um dos bugs mais comuns em C#.
+
+### `Program.cs`: o ponto de partida da API
+Ele tem três partes, e essa ordem vale para toda API ASP.NET Core:
+1. **Registro de serviços** (`builder.Services.Add...`): avisa ao .NET quais "peças" existem (banco, autenticação, OpenAPI). É a **injeção de dependência**, que veremos mais a fundo no passo 5.
+2. **Pipeline / middlewares** (`app.Use...`, `app.Map...`): cada requisição passa por essas etapas **na ordem em que foram escritas**.
+3. **Endpoints** (`app.MapGet(...)`): qual código responde a cada URL.
+
+### Minimal APIs
+- Um endpoint é definido com uma linha, `app.MapGet("/api/health", () => ...)`, em vez de uma classe *Controller*.
+- É o estilo moderno, recomendado pela Microsoft para APIs novas e mais simples de ler. Quando houver muitos endpoints, vamos agrupá-los por assunto em `Features/`.
+
+### OpenAPI e Scalar
+- **OpenAPI:** um documento JSON (`/openapi/v1.json`) que **descreve** a API: as rotas, os parâmetros e as respostas. É gerado automaticamente a partir do código.
+- **Scalar:** lê esse documento e monta uma **página interativa** (`/scalar`) para testar a API pelo navegador. Ele substitui o Swagger UI, que saiu do template padrão do .NET.
+
+### Ambientes: Development × Production
+- A variável `ASPNETCORE_ENVIRONMENT` diz em que ambiente a API está rodando.
+- O `Program.cs` só mostra o Scalar `if (app.Environment.IsDevelopment())`, porque **não queremos expor a documentação interna em produção**.
+- **Na prática:** testando sem o perfil de desenvolvimento, o `/scalar` deu **404**, porque a API rodava como *Production*. Com `Development`, funcionou. Isso mostra que o comportamento muda por configuração, não por código.
+- O `launchSettings.json` define o perfil usado pelo `dotnet run`: porta `5080`, ambiente `Development` e abrir o navegador direto no `/scalar`. **Esse arquivo só existe no desenvolvimento.** Em produção, o ambiente vem de variável de ambiente do servidor.
+
+### Por que tiramos o `UseHttpsRedirection`
+- O template redireciona HTTP → HTTPS. No nosso caso:
+  - em desenvolvimento, rodamos só em HTTP local, o que é mais simples e funciona com o celular na rede (passo 8);
+  - em produção, o Render e a Vercel cuidam do HTTPS **na frente** da API. A API recebe a requisição já tratada.
+- Ou seja: o HTTPS existe, só não é responsabilidade da API.
+
+### Arquivo `.http`
+- `Oficina.Api.http` guarda requisições de teste prontas. No VS Code, com a extensão **REST Client**, um clique em "Send Request" envia a requisição. Ele vai substituir o Postman nos testes do login (passo 7).
+
+### `dotnet build`, `dotnet run`, `dotnet test`
+- `dotnet build`: compila tudo. **Sempre rode antes de commitar.**
+- `dotnet run --project src/Oficina.Api`: compila e sobe a API.
+- `dotnet test`: roda os testes. Por enquanto diz "nenhum teste disponível", porque eles chegam na semana 3.

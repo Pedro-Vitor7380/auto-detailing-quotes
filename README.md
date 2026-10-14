@@ -34,7 +34,18 @@ docker compose up -d      # sobe o PostgreSQL em segundo plano
 docker compose ps         # deve mostrar "healthy"
 ```
 
-> As instruções do back-end e do front-end serão adicionadas a cada etapa.
+### 2. API (back-end)
+
+```bash
+cd backend
+dotnet build                          # compila todos os projetos
+dotnet run --project src/Oficina.Api  # sobe a API em http://localhost:5080
+```
+
+- Documentação interativa: http://localhost:5080/scalar
+- Health check: http://localhost:5080/api/health
+
+> As instruções do front-end serão adicionadas a cada etapa.
 
 ## Fluxo de trabalho (Git)
 
