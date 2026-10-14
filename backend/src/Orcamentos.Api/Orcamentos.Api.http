@@ -1,8 +1,28 @@
 # Requisições de teste da API.
 # No VS Code, instale a extensão "REST Client" e clique em "Send Request" acima de cada requisição.
+# A API precisa estar rodando: dotnet run --project src/Orcamentos.Api
 
 @baseUrl = http://localhost:5080
 
-### Verifica se a API está no ar
+### Verifica se a API está no ar (não exige login)
 GET {{baseUrl}}/api/health
 Accept: application/json
+
+### Login: pergunta e-mail e senha na hora (nada fica salvo neste arquivo)
+# @name login
+# @prompt email Seu e-mail de login
+# @prompt senha Sua senha
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "senha": "{{senha}}"
+}
+
+### Dados do usuário logado: usa o token da resposta do login acima (rode o login antes)
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{login.response.body.token}}
+
+### Sem token: deve responder 401
+GET {{baseUrl}}/api/auth/me

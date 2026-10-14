@@ -359,9 +359,9 @@ Ele tem três partes, e essa ordem vale para toda API ASP.NET Core:
 - **Testamos os dois casos**, desligando o container com `docker compose stop db`. Testar só o caminho feliz não prova que o erro é tratado.
 - Em produção, o Render pode usar esse endpoint para saber se o serviço está saudável.
 
-### O que ficou para o passo 7: filtro automático por oficina
+### O que ficou para depois: filtro automático por oficina
 - O plano prevê um **filtro global** (`HasQueryFilter`) para cada consulta só enxergar os dados da oficina do usuário logado.
-- Ele depende de saber **quem está logado**, o que só existe após a autenticação (passo 7). Vamos implementá-lo lá.
+- Ele depende de saber **quem está logado** (passo 7) e só faz sentido quando existirem dados da oficina para proteger (serviços, clientes). Ficou para a semana 2.
 
 ---
 
@@ -413,3 +413,80 @@ dotnet run --project src/Orcamentos.Api -- criar-usuario
 - **Sintoma:** `dotnet build` falha com `MSB3027: não foi possível copiar ... O arquivo é bloqueado por: "Orcamentos.Api (número)"`.
 - **Causa:** a API está **rodando** em algum terminal e usando as DLLs que o build quer substituir. O Windows não deixa sobrescrever um arquivo em uso.
 - **Solução:** vá ao terminal da API e aperte `Ctrl+C`, depois rode o build de novo. **Não é erro no código.**
+
+---
+
+## Passo 7 — Login com JWT
+
+### Autenticação × Autorização
+- **Autenticação:** *quem é você?* O login confere e-mail e senha e entrega o token.
+- **Autorização:** *você pode fazer isso?* A cada requisição, a API decide se o dono do token pode acessar aquele endpoint.
+- No pipeline: `app.UseAuthentication()` lê o token e descobre o usuário, e `app.UseAuthorization()` aplica as regras de acesso. **A ordem importa:** primeiro identificar, depois autorizar.
+
+### JWT (JSON Web Token)
+- **O que é:** um "crachá digital" em texto, com 3 partes separadas por ponto: `cabeçalho.conteúdo.assinatura`.
+  - **Cabeçalho:** o algoritmo da assinatura (HMAC-SHA256).
+  - **Conteúdo (*payload*):** as **claims**, ou seja, as informações do crachá.
+  - **Assinatura:** um código calculado com a **chave secreta** da API.
+- **Como a API confia no token:** ela recalcula a assinatura com a chave secreta. Se alguém alterar **qualquer** caractere do conteúdo, a assinatura não bate mais e o token é recusado. **Testamos isso:** um token com os últimos 5 caracteres trocados recebeu **401**.
+- **Stateless:** a API não guarda sessão nenhuma. O token carrega tudo, e a assinatura prova que ele é legítimo. Isso é ótimo para hospedagem grátis, que pode reiniciar a API a qualquer momento sem derrubar o login de ninguém.
+- **⚠️ O conteúdo NÃO é criptografado, só assinado.** Qualquer um pode **ler** o conteúdo de um JWT (decodificamos o nosso no teste e apareceram o e-mail, o nome e o `oficina_id`). Por isso **nunca** coloque senha ou dado sensível nas claims.
+
+### Claims do nosso token
+| Claim | Significado | Exemplo |
+|---|---|---|
+| `sub` (*subject*) | Id do usuário | `01a13b07-...` |
+| `email`, `name` | e-mail e nome | |
+| `oficina_id` | oficina do usuário (claim **nossa**) | `01a13b00-...` |
+| `iss` (*issuer*) | quem emitiu | `orcamentos-api` |
+| `aud` (*audience*) | para quem foi emitido | `orcamentos-app` |
+| `exp` | quando expira (segundos desde 1970) | |
+| `iat`, `nbf` | quando foi emitido / válido a partir de | |
+
+- `MapInboundClaims = false`: sem isso, o .NET renomeia `sub` para um nome longo e antigo (`http://schemas.xmlsoap.org/...`). Assim os nomes ficam iguais aos do token.
+
+### Chave secreta e configurações
+- **`Jwt:Chave`:** 48 bytes aleatórios (`openssl rand -base64 48`) nos **User Secrets**. Quem tiver essa chave consegue **fabricar tokens válidos**, então ela é tão sensível quanto uma senha de administrador. Em produção, vem da variável de ambiente `Jwt__Chave`.
+- **`Emissor`, `Audiencia`, `ExpiracaoHoras`:** **não** são segredos, então ficam no `appsettings.json`.
+- **Options pattern (`JwtOpcoes`):** a seção `Jwt` da configuração vira uma classe C# com validações (`[Required]`, `[MinLength(32)]`).
+  - `ValidateOnStart()`: se faltar a chave ou ela for curta demais, a **API nem sobe**, com uma mensagem clara. É o mesmo princípio de "falhar cedo" da connection string.
+
+### Expiração: 7 dias (uma escolha consciente)
+- O token vale **168 horas**. Depois disso, é preciso fazer login de novo.
+- **A troca:** um prazo curto é mais seguro (um token roubado vale por pouco tempo), mas obriga a logar toda hora, e no pátio, com o cliente esperando, isso atrapalha. Para **1 usuário**, 7 dias é um equilíbrio razoável.
+- A alternativa profissional são os **refresh tokens** (um token curto, renovado automaticamente por outro mais longo). É mais complexo, e fica como melhoria futura.
+- **Limitação do JWT:** não dá para "cancelar" um token antes de ele vencer. Se o usuário for **apagado**, porém, o `/me` responde 401, porque confere no banco.
+
+### Seguro por padrão: `FallbackPolicy`
+- `SetFallbackPolicy(... RequireAuthenticatedUser() ...)`: **todo** endpoint exige login, a menos que seja marcado com `.AllowAnonymous()`.
+- **Por quê:** o erro mais comum é **esquecer** de proteger um endpoint novo. Aqui, esquecer significa "fica protegido", que é o erro seguro.
+- **Anônimos hoje:** `/api/health`, `/api/auth/login`, `/openapi` e `/scalar` (esses dois só existem em desenvolvimento).
+
+### Defesas no login
+1. **Mensagem única:** "E-mail ou senha inválidos." vale tanto para e-mail inexistente quanto para senha errada. Se a mensagem fosse "e-mail não encontrado", um atacante descobriria quais e-mails estão cadastrados (**enumeração de usuários**).
+2. **Mesmo tempo de resposta:** verificar uma senha leva um tempo perceptível (PBKDF2, 100 mil iterações). Se, para um e-mail inexistente, a API respondesse **na hora**, o tempo revelaria se o e-mail existe (**ataque de temporização**). Por isso, sem usuário, verificamos a senha contra um `HashFalso`. **Medimos:** 42 ms × 44 ms.
+3. **401 com Problem Details:** o erro sai no formato padrão da web (RFC 9457): `{"type":..., "title":..., "status":401, "detail":...}`. O front-end vai ler sempre o mesmo formato.
+
+### Minimal APIs organizadas: `MapGroup` e `TypedResults`
+- **`MapGroup("/api/auth")`:** agrupa os endpoints com o mesmo prefixo e a mesma tag no Scalar.
+- **Arquivo por assunto:** `Features/Auth/` tem tudo do login (configuração, gerador de token e endpoints). Quando surgirem serviços e clientes, cada um terá a sua pasta.
+- **`TypedResults` + `Results<Ok<...>, ProblemHttpResult>`:** o tipo de retorno **declara** as respostas possíveis. O compilador confere, e o OpenAPI documenta sozinho.
+- **`record`:** um tipo enxuto para dados (`record LoginRequest(string Email, string Senha)`). É ideal para o que entra e sai da API, os **DTOs**.
+- **`AsNoTracking()`:** avisa ao EF que só vamos **ler**, sem alterar. Ele não precisa "vigiar" o objeto, o que é mais rápido.
+
+### Testando com o arquivo `.http`
+- `# @prompt email` e `# @prompt senha`: o REST Client **pergunta** os valores ao enviar. A senha nunca fica gravada no arquivo, que vai para o Git.
+- `# @name login` + `{{login.response.body.token}}`: a requisição `/me` reaproveita o token da resposta do login automaticamente.
+
+### Testes manuais realizados (com um usuário temporário, apagado no final)
+| Cenário | Resultado |
+|---|---|
+| `/api/health` sem token | 200 |
+| `/api/auth/me` sem token | 401 |
+| Login com senha errada | 401 "E-mail ou senha inválidos." |
+| Login com e-mail inexistente | 401, mesma mensagem e mesmo tempo |
+| Login com e-mail malformado | 401 |
+| Login com e-mail em maiúsculas e com espaços | 200 + token |
+| `/me` com token válido | 200 com os dados do usuário |
+| `/me` com token adulterado | 401 |
+| `/me` com token de um usuário que foi apagado | 401 |
