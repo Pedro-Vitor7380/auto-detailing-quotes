@@ -274,3 +274,91 @@ Ele tem três partes, e essa ordem vale para toda API ASP.NET Core:
 - **Nome do teste:** `Metodo_Cenario_ResultadoEsperado`. Quando falhar, o nome já diz o que quebrou.
 - **`Assert.Throws<T>(...)`:** verifica que o código **lança** a exceção esperada. Testar o caminho de erro é tão importante quanto testar o caminho feliz.
 - **Onde:** `backend/tests/Orcamentos.Domain.Tests/Entidades/`
+
+---
+
+## Passo 5 — Entity Framework Core e a primeira migration
+
+### ORM e Entity Framework Core
+- **ORM** (*Object-Relational Mapper*): traduz entre **objetos C#** e **tabelas do banco**. Você escreve `db.Usuarios.Where(u => u.Email == email)` e o EF gera o SQL `SELECT ... WHERE email = @p0`.
+- **Por que usamos:** menos SQL escrito à mão, consultas checadas pelo compilador e proteção contra **SQL Injection**, porque os valores sempre vão como parâmetros.
+- **Pacotes:**
+  - `Npgsql.EntityFrameworkCore.PostgreSQL`: o "tradutor" do EF para o PostgreSQL.
+  - `EFCore.NamingConventions`: nomes em `snake_case` (`criado_em` em vez de `CriadoEm`). É o padrão do PostgreSQL, e assim não precisamos usar aspas no SQL.
+  - `Microsoft.EntityFrameworkCore.Design`: necessário só em tempo de desenvolvimento, para gerar migrations.
+
+### `AppDbContext`
+- Representa uma **sessão com o banco**. Cada `DbSet<T>` vira uma tabela (`Oficinas` → `oficinas`).
+- **Onde:** `backend/src/Orcamentos.Infrastructure/Dados/AppDbContext.cs`
+- Fica na **Infraestrutura**, e não no Domínio: o Domínio não sabe que existe banco.
+
+### Configurações com `IEntityTypeConfiguration<T>` (Fluent API)
+- Uma classe por entidade diz **como** guardá-la: tamanho das colunas, obrigatoriedade, índices e chaves estrangeiras.
+- **Por que não usar atributos** (`[MaxLength(150)]`) na própria entidade: isso colocaria detalhes de banco dentro do Domínio. Com classes separadas, o Domínio continua "limpo".
+- `ApplyConfigurationsFromAssembly`: encontra **todas** as configurações automaticamente. Ao criar uma entidade nova, basta criar a classe de configuração dela.
+- **Onde:** `backend/src/Orcamentos.Infrastructure/Dados/Configuracoes/`
+
+### Chave primária, chave estrangeira e índices
+- **Chave primária (`pk_`):** identifica cada linha de forma única. É o nosso `Id`.
+- **Chave estrangeira (`fk_`):** `usuarios.oficina_id` **precisa** apontar para uma oficina que existe. O banco recusa um usuário com oficina inexistente.
+- **`OnDelete(Restrict)`:** o banco **impede** apagar uma oficina que ainda tem usuários. A alternativa `Cascade` apagaria os usuários junto, o que é perigoso demais para dados de negócio.
+- **Índice (`ix_`):** como o índice de um livro, deixa as buscas por aquela coluna rápidas.
+- **Índice único em `email`:** além de acelerar o login, o **banco garante** que não existam dois usuários com o mesmo e-mail, mesmo que o código tenha um bug. É **global** (não por oficina) de propósito: no login, a pessoa digita só o e-mail, e o sistema precisa achar **um** usuário.
+
+### Migrations
+- **O que é:** um arquivo C# com as instruções para mudar a estrutura do banco. `Up()` aplica a mudança e `Down()` desfaz.
+- **Por que usamos:** a estrutura do banco fica **versionada no Git**, junto com o código. Em produção (passo 11), as mesmas migrations criam as mesmas tabelas no Neon.
+- **Arquivos gerados** (em `Infrastructure/Dados/Migrations/`):
+  - `<data>_Inicial.cs`: a migration em si. **Sempre leia antes de aplicar.**
+  - `<data>_Inicial.Designer.cs`: metadados (não editar).
+  - `AppDbContextModelSnapshot.cs`: a "foto" atual do modelo. O EF compara essa foto com as classes para saber o que mudou na próxima migration.
+- **Tabela `__EFMigrationsHistory`:** o EF anota no banco quais migrations já foram aplicadas, para nunca aplicar a mesma duas vezes.
+- **Comandos** (rodar dentro de `backend/`):
+  ```bash
+  # criar uma migration depois de mudar entidades/configurações
+  dotnet ef migrations add NomeDaMudanca --project src/Orcamentos.Infrastructure --startup-project src/Orcamentos.Api --output-dir Dados/Migrations
+  # aplicar no banco
+  dotnet ef database update --project src/Orcamentos.Infrastructure --startup-project src/Orcamentos.Api
+  # desfazer a última migration (só se ainda NÃO foi aplicada)
+  dotnet ef migrations remove --project src/Orcamentos.Infrastructure --startup-project src/Orcamentos.Api
+  ```
+- `--project` diz onde ficam as migrations (Infrastructure). `--startup-project` diz de onde ler a configuração (Api, onde está a connection string).
+
+### Ferramenta local (`dotnet-tools.json`)
+- O `dotnet-ef` foi instalado como **ferramenta local**: a versão fica registrada em `backend/dotnet-tools.json`, que vai para o Git.
+- Quem clonar o projeto roda `dotnet tool restore` e tem **a mesma versão**. Uma instalação global poderia ter versões diferentes em cada PC.
+
+### Connection string e User Secrets
+- **Connection string:** o "endereço" do banco: `Host=localhost;Port=5432;Database=oficina;Username=oficina;Password=...`
+- Ela contém a **senha**, então **não pode** ir para o `appsettings.json`, que vai para o Git.
+- **User Secrets:** o .NET guarda o valor num arquivo **fora do projeto**, em `%APPDATA%\Microsoft\UserSecrets\<UserSecretsId>\secrets.json`. Em desenvolvimento, a API lê esse arquivo automaticamente, como se fosse parte do `appsettings`.
+- O `<UserSecretsId>` no `.csproj` só diz **qual pasta** usar. Ele **não é** segredo.
+- **Comandos:**
+  ```bash
+  dotnet user-secrets list --project src/Orcamentos.Api              # ver
+  dotnet user-secrets set "Chave" "valor" --project src/Orcamentos.Api  # definir
+  ```
+- **Em produção** não existe User Secrets: o valor vem de uma **variável de ambiente** (`ConnectionStrings__Banco`) configurada no Render. O código é o mesmo, só a configuração muda.
+- Se a connection string não estiver configurada, a API **para na hora** com uma mensagem explicando o que fazer. Falhar cedo e com uma mensagem clara é melhor do que um erro confuso depois.
+
+### Injeção de dependência (DI)
+- **O problema:** o endpoint precisa de um `AppDbContext`, que precisa de uma connection string, que vem da configuração. Quem monta tudo isso?
+- **A solução:** registramos **uma vez** "como criar um `AppDbContext`" (`services.AddDbContext<AppDbContext>(...)`). Depois, qualquer endpoint simplesmente **pede** um `AppDbContext` como parâmetro e o .NET entrega pronto.
+- Veja no `/api/health`: `async (AppDbContext db, CancellationToken ct) => ...`. Nós não criamos o `db`, ele é **injetado**.
+- **`AddInfraestrutura(...)`:** um método de extensão que agrupa os registros da camada. O `Program.cs` fica com uma linha só, e a Infraestrutura decide os próprios detalhes.
+- **Tempo de vida:** o `DbContext` é *Scoped*, ou seja, um novo para **cada requisição HTTP**, descartado no fim.
+
+### `async`/`await` e `CancellationToken`
+- Ir ao banco é **lento** para o computador, já que é rede. Com `await`, a API **não fica parada esperando**: ela atende outras requisições e volta quando o banco responde.
+- **`CancellationToken`:** se o usuário fechar a página no meio, a consulta é cancelada, em vez de gastar recursos à toa.
+
+### Health check com o banco
+- O `/api/health` agora testa a conexão (`CanConnectAsync`):
+  - banco ok: **HTTP 200** `{"status":"ok","banco":"ok"}`;
+  - banco fora: **HTTP 503** (*Service Unavailable*) `{"status":"erro","banco":"inacessível"}`.
+- **Testamos os dois casos**, desligando o container com `docker compose stop db`. Testar só o caminho feliz não prova que o erro é tratado.
+- Em produção, o Render pode usar esse endpoint para saber se o serviço está saudável.
+
+### O que ficou para o passo 7: filtro automático por oficina
+- O plano prevê um **filtro global** (`HasQueryFilter`) para cada consulta só enxergar os dados da oficina do usuário logado.
+- Ele depende de saber **quem está logado**, o que só existe após a autenticação (passo 7). Vamos implementá-lo lá.

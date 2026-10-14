@@ -36,6 +36,19 @@ docker compose ps         # deve mostrar "healthy"
 
 ### 2. API (back-end)
 
+Configuração inicial (uma vez só):
+
+```bash
+cd backend
+dotnet tool restore   # instala o dotnet-ef na versão do projeto
+# connection string do banco local (use a senha definida no .env)
+dotnet user-secrets set "ConnectionStrings:Banco" "Host=localhost;Port=5432;Database=oficina;Username=oficina;Password=<senha>" --project src/Orcamentos.Api
+# cria as tabelas
+dotnet ef database update --project src/Orcamentos.Infrastructure --startup-project src/Orcamentos.Api
+```
+
+Rodar:
+
 ```bash
 cd backend
 dotnet build                          # compila todos os projetos
