@@ -30,6 +30,11 @@ Organizado pelos passos do desenvolvimento.
 - **Por que usamos:** mantém o código com o mesmo formato em qualquer editor. Usamos 4 espaços no C#, que é a convenção da Microsoft, e 2 espaços no resto (JS/TS, JSON, YAML).
 - **Onde:** `/.editorconfig`
 
+### `.gitattributes` e quebras de linha (LF × CRLF)
+- **O problema:** o Windows termina cada linha com dois caracteres invisíveis (`CRLF`), enquanto Linux e macOS usam um só (`LF`). Sem um padrão, o Git pode mostrar que um arquivo inteiro mudou quando só o fim das linhas mudou.
+- **A solução:** o `.gitattributes` com `* text=auto eol=lf` faz o repositório usar sempre `LF`. Como os servidores de deploy rodam Linux, isso também evita surpresas por lá.
+- **Onde:** `/.gitattributes`
+
 ### Commits pequenos e descritivos
 - Cada passo do projeto vira **um commit**. A mensagem descreve **o que** mudou e, se não for óbvio, **por quê**.
 - Commits pequenos são fáceis de entender, revisar e desfazer.
