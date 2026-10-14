@@ -39,6 +39,14 @@ public class UsuarioTests
     }
 
     [Fact]
+    public void NormalizarEmail_DevolveOMesmoFormatoGuardadoNoUsuario()
+    {
+        var usuario = new Usuario(OficinaId, "Pedro", " Pedro@Exemplo.COM ", "hash");
+
+        Assert.Equal(usuario.Email, Usuario.NormalizarEmail("PEDRO@exemplo.com  "));
+    }
+
+    [Fact]
     public void Criar_SemNome_LancaRegraDeNegocio()
     {
         Assert.Throws<RegraDeNegocioException>(

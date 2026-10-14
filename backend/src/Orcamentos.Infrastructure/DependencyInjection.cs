@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Orcamentos.Infrastructure.Dados;
+using Orcamentos.Infrastructure.Seguranca;
 
 namespace Orcamentos.Infrastructure;
 
@@ -22,6 +23,8 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options => options
             .UseNpgsql(connectionString)
             .UseSnakeCaseNamingConvention()); // tabelas e colunas em snake_case: padrão do PostgreSQL
+
+        services.AddSingleton<HasherDeSenha>();
 
         return services;
     }

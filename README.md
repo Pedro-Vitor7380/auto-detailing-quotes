@@ -45,6 +45,8 @@ dotnet tool restore   # instala o dotnet-ef na versão do projeto
 dotnet user-secrets set "ConnectionStrings:Banco" "Host=localhost;Port=5432;Database=oficina;Username=oficina;Password=<senha>" --project src/Orcamentos.Api
 # cria as tabelas
 dotnet ef database update --project src/Orcamentos.Infrastructure --startup-project src/Orcamentos.Api
+# cria a oficina e o seu usuário (pergunta os dados no terminal)
+dotnet run --project src/Orcamentos.Api -- criar-usuario
 ```
 
 Rodar:

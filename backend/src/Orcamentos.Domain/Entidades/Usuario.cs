@@ -36,13 +36,19 @@ public class Usuario : EntidadeDaOficina
         Nome = nome.Trim();
     }
 
-    public void AlterarEmail(string email)
+    public void AlterarEmail(string email) => Email = NormalizarEmail(email);
+
+    /// <summary>
+    /// Valida o e-mail e devolve no formato em que é guardado (sem espaços e em minúsculo).
+    /// Também é usado para buscar usuários por e-mail, garantindo a mesma regra em todo lugar.
+    /// </summary>
+    public static string NormalizarEmail(string email)
     {
         if (string.IsNullOrWhiteSpace(email) || !MailAddress.TryCreate(email.Trim(), out _))
             throw new RegraDeNegocioException("E-mail inválido.");
 
         // Minúsculo para que "Pedro@Gmail.com" e "pedro@gmail.com" sejam o mesmo login.
-        Email = email.Trim().ToLowerInvariant();
+        return email.Trim().ToLowerInvariant();
     }
 
     public void DefinirSenhaHash(string senhaHash)
