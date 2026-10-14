@@ -1,0 +1,8 @@
+# Requisições de teste da API.
+# No VS Code, instale a extensão "REST Client" e clique em "Send Request" acima de cada requisição.
+
+@baseUrl = http://localhost:5080
+
+### Verifica se a API está no ar
+GET {{baseUrl}}/api/health
+Accept: application/json

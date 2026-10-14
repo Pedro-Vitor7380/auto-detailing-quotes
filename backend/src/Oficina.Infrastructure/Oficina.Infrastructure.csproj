@@ -1,0 +1,8 @@
+<!-- Infraestrutura: acesso ao banco (EF Core) e serviços externos (PDF). Conhece o Domínio. -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Oficina.Domain\Oficina.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
