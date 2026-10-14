@@ -1,9 +1,12 @@
+using Orcamentos.Infrastructure;
+using Orcamentos.Infrastructure.Dados;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ===== 1. Registro de serviços (injeção de dependência) =====
 builder.Services.AddOpenApi();
+builder.Services.AddInfraestrutura(builder.Configuration);
 
 var app = builder.Build();
 
@@ -15,8 +18,14 @@ if (app.Environment.IsDevelopment())
 }
 
 // ===== 3. Endpoints =====
-app.MapGet("/api/health", () => Results.Ok(new { status = "ok", horario = DateTimeOffset.Now }))
+app.MapGet("/api/health", async (AppDbContext db, CancellationToken ct) =>
+    {
+        var bancoOk = await db.Database.CanConnectAsync(ct);
+        var resposta = new { status = bancoOk ? "ok" : "erro", banco = bancoOk ? "ok" : "inacessível", horario = DateTimeOffset.Now };
+
+        return bancoOk ? Results.Ok(resposta) : Results.Json(resposta, statusCode: StatusCodes.Status503ServiceUnavailable);
+    })
     .WithName("Health")
-    .WithSummary("Verifica se a API está no ar");
+    .WithSummary("Verifica se a API e o banco de dados estão no ar");
 
 app.Run();
