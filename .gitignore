@@ -1,0 +1,27 @@
+# ==== .NET ====
+# Pastas geradas pela compilação (recriadas a cada build)
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+
+# ==== Node / Front-end ====
+node_modules/
+dist/
+dev-dist/
+*.local
+
+# ==== Segredos e configurações locais ====
+# Nunca versionar senhas ou chaves. Use `dotnet user-secrets` ou variáveis de ambiente.
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+
+# ==== Sistema / editores ====
+.DS_Store
+Thumbs.db
+.idea/
+*.log
