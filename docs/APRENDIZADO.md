@@ -90,3 +90,49 @@ Organizado pelos passos do desenvolvimento.
 ### Acessar o banco pelo terminal
 - `docker exec -it oficina-db psql -U oficina -d oficina` abre o `psql` (o terminal do PostgreSQL) **dentro do container**, sem precisar instalar nada no Windows.
 - Dentro do `psql`: `\dt` lista as tabelas, `\q` sai.
+
+---
+
+## Pergunta — Como o app funciona no celular, se o Docker roda no PC?
+
+**Resposta curta:** o celular **nunca fala com o Docker**. O Docker é só uma ferramenta de **desenvolvimento**. O app passa por duas fases, e em cada uma o celular chega ao sistema de um jeito diferente.
+
+### Fase 1: desenvolvimento (no PC)
+
+Tudo roda no PC. O celular acessa o PC **pela rede Wi-Fi**, como se o PC fosse um servidor:
+
+```
+ Celular (no mesmo Wi-Fi)
+    │  abre http://<IP-do-PC>:5173
+    ▼
+┌──────────────────────────── PC ─────────────────────────────┐
+│  Front-end React (Vite) ──► API .NET ──► Docker: PostgreSQL │
+│       porta 5173            porta 5080      porta 5432      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- O celular só conversa com o **front-end**. O front-end chama a **API**, e só a API conversa com o **banco**.
+- Funciona apenas com o celular **no mesmo Wi-Fi** e com o **PC ligado**.
+- Serve para testar no celular de verdade durante o desenvolvimento (passo 8).
+- O IP do PC aparece no comando `ipconfig` (linha "Endereço IPv4", algo como `192.168.x.x`).
+
+### Fase 2: produção (uso real no pátio)
+
+Cada parte vai para um serviço gratuito na internet, e o PC não precisa mais estar ligado:
+
+```
+ Celular (4G ou qualquer Wi-Fi)
+    │  abre https://<app>.vercel.app
+    ▼
+ Vercel (front-end) ──► Render (API .NET) ──► Neon (PostgreSQL)
+```
+
+- O **Docker do PC sai de cena**. O banco de produção é o Neon, um PostgreSQL na nuvem.
+- O app funciona **de qualquer lugar com internet**, e o celular pode "instalá-lo" como PWA.
+- O banco local (Docker) e o de produção (Neon) são **separados**: o que é cadastrado em testes no PC não aparece no app real.
+
+### Por que essa arquitetura funciona nas duas fases
+
+A API não sabe onde o banco está. Ela recebe o endereço **por configuração**: no PC, o endereço aponta para o Docker; em produção, aponta para o Neon. O mesmo vale para o front-end e o endereço da API.
+
+**O código é o mesmo, só a configuração muda.** Esse princípio vem de um conjunto de boas práticas para aplicações web chamado *The Twelve-Factor App* (fator III, "Config").
