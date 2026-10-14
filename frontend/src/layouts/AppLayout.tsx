@@ -16,7 +16,10 @@ export function AppLayout() {
     <div className="min-h-dvh md:flex">
       {/* Menu lateral: só aparece a partir de md (computador/tablet) */}
       <aside className="hidden md:flex md:w-60 md:shrink-0 md:flex-col md:border-r md:border-slate-200 md:bg-white">
-        <div className="px-6 py-5 text-lg font-bold text-marca-700">Orçamentos</div>
+        <div className="flex items-center gap-3 px-5 py-5">
+          <img src="/icons/logo-256.png" alt="" width={40} height={40} className="size-10" />
+          <span className="text-lg font-bold text-grafite-900">Orçamentos</span>
+        </div>
         <nav className="flex flex-col gap-1 px-3">
           {itensDeNavegacao.map(({ rota, rotulo, icone: Icone }) => (
             <NavLink
@@ -51,13 +54,16 @@ export function AppLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Barra superior: só no celular */}
-        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
+        <header className="sticky top-0 z-10 bg-grafite-900 px-4 pt-[env(safe-area-inset-top)] md:hidden">
           <div className="flex h-14 items-center justify-between">
-            <span className="text-lg font-bold text-marca-700">Orçamentos</span>
+            <div className="flex items-center gap-2">
+              <img src="/icons/logo-256.png" alt="" width={32} height={32} className="size-8" />
+              <span className="text-lg font-bold text-marca-400">Orçamentos</span>
+            </div>
             <button
               onClick={sair}
               aria-label="Sair"
-              className="-mr-2 flex size-11 items-center justify-center rounded-lg text-slate-500 active:bg-slate-100"
+              className="-mr-2 flex size-11 items-center justify-center rounded-lg text-marca-100 active:bg-grafite-800"
             >
               <LogOut className="size-5" aria-hidden />
             </button>
