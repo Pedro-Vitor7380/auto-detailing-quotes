@@ -362,3 +362,54 @@ Ele tem três partes, e essa ordem vale para toda API ASP.NET Core:
 ### O que ficou para o passo 7: filtro automático por oficina
 - O plano prevê um **filtro global** (`HasQueryFilter`) para cada consulta só enxergar os dados da oficina do usuário logado.
 - Ele depende de saber **quem está logado**, o que só existe após a autenticação (passo 7). Vamos implementá-lo lá.
+
+---
+
+## Passo 6 — Criar a oficina e o usuário (seed)
+
+### Seed
+- **O que é:** inserir os dados iniciais de que o sistema precisa para funcionar. Aqui, a primeira oficina e o primeiro usuário.
+- **Por que um comando de terminal, e não uma tela de "cadastre-se":** o app tem um único usuário. Uma tela pública de cadastro deixaria **qualquer pessoa na internet** criar uma conta. Com o comando, **só quem tem acesso ao banco** cria usuários.
+- O mesmo comando vai criar o usuário no banco de **produção** (passo 11): basta rodá-lo com a connection string do Neon.
+
+### Como usar
+```bash
+cd backend
+dotnet run --project src/Orcamentos.Api -- criar-usuario
+```
+- O `--` separa os argumentos do `dotnet run` dos argumentos **da nossa aplicação**. Tudo depois do `--` chega no `args` do `Program.cs`.
+- Se ainda não existir oficina, o comando pergunta o nome e cria. Se já existir, usa a existente.
+- A senha é digitada **sem aparecer na tela** (aparecem `*`).
+- Termina com **código de saída** `0` (sucesso) ou `1` (erro). É assim que scripts e automações sabem se um comando funcionou.
+
+### Modo comando no `Program.cs`
+- Se o primeiro argumento for `criar-usuario`, o `Program.cs` executa o comando e **encerra**, sem subir o servidor web.
+- Ele reaproveita **toda a configuração da API** (connection string, injeção de dependência, hasher). Não é preciso um projeto separado só para isso.
+- **Escopo manual (`CreateScope`):** o `AppDbContext` é *Scoped* (um por requisição HTTP). Fora de uma requisição, criamos o escopo na mão e o descartamos com `using` no final.
+
+### Hash de senha com `PasswordHasher`
+- **Regra de ouro:** nunca invente sua própria criptografia. Usamos o `PasswordHasher` do ASP.NET Core Identity, testado e revisado por especialistas.
+- **Como funciona:** algoritmo **PBKDF2-SHA512** com **100.000 iterações** e um **salt** aleatório.
+  - **Salt:** um valor aleatório misturado à senha antes do hash. Duas pessoas com a mesma senha ficam com hashes **diferentes**, o que impede ataques com tabelas prontas de hashes conhecidos.
+  - **Iterações:** o hash é calculado 100.000 vezes de propósito. Para conferir **uma** senha no login, isso leva milissegundos. Para quem tenta **bilhões** de senhas num banco vazado, fica caro demais.
+- O hash fica guardado assim: `AQAAAAIAAYag...`. O começo diz a versão do algoritmo, e o resto contém o salt e o hash.
+- **Onde:** `backend/src/Orcamentos.Infrastructure/Seguranca/HasherDeSenha.cs`
+- **Mudança no plano:** o hasher estava previsto para o passo 7 (login), mas o seed já precisa dele. Por isso entrou aqui.
+- **`AddSingleton`:** o hasher não guarda estado, então uma única instância para a aplicação inteira basta.
+
+### Transação no `SaveChangesAsync`
+- O `Add` só **marca** o que deve ser salvo. Nada vai para o banco até o `SaveChangesAsync()`.
+- Quando ele é chamado, a oficina nova e o usuário são gravados **juntos, numa transação**: ou salva tudo, ou nada. Nunca fica uma oficina sem usuário por causa de um erro no meio.
+
+### Testar de verdade revela problemas
+- Rodamos o comando em 4 cenários (sucesso, e-mail repetido, senha curta/confirmação errada, e-mail inválido) e encontramos **3 problemas**, que foram corrigidos:
+  1. **Logs de SQL no meio das perguntas.** A 1ª tentativa de correção (`SetMinimumLevel`) **não funcionou**, porque os níveis do `appsettings.Development.json` têm prioridade sobre ele. A correção certa foi `AddFilter`. **Lição:** confirme se a correção funcionou, em vez de supor.
+  2. **E-mail inválido só era recusado depois de digitar a senha duas vezes.** Agora é validado logo após ser digitado.
+  3. **A mensagem final mostrava o e-mail como digitado, não como foi gravado.**
+- Os problemas 2 e 3 tinham a mesma causa: o comando **repetia** a regra de normalizar o e-mail. A solução foi o método `Usuario.NormalizarEmail(...)`, a **fonte única** da regra, usada pela entidade e pelo comando. Se a regra mudar, muda num lugar só.
+- **Testando com entrada simulada:** `printf "resposta1\nresposta2\n" | dotnet run ...` envia as respostas como se fossem digitadas. Por isso o código checa `Console.IsInputRedirected`: sem teclado, não dá para esconder a senha.
+
+### Pegadinha: "o arquivo é bloqueado por Orcamentos.Api"
+- **Sintoma:** `dotnet build` falha com `MSB3027: não foi possível copiar ... O arquivo é bloqueado por: "Orcamentos.Api (número)"`.
+- **Causa:** a API está **rodando** em algum terminal e usando as DLLs que o build quer substituir. O Windows não deixa sobrescrever um arquivo em uso.
+- **Solução:** vá ao terminal da API e aperte `Ctrl+C`, depois rode o build de novo. **Não é erro no código.**
