@@ -139,9 +139,9 @@ ItemOrcamento (Id, OrcamentoId, ServicoId?, Descricao, Quantidade,
 
 Arquitetura: o front-end (SPA) consome uma API REST. O back-end tem **3 projetos**:
 
-- **Oficina.Api**: endpoints, autenticação e configuração. Os casos de uso ficam aqui, em pastas `Features/<Assunto>`.
-- **Oficina.Domain**: entidades e regras de negócio, sem depender de banco nem de framework.
-- **Oficina.Infrastructure**: acesso ao banco (EF Core) e geração de PDF.
+- **Orcamentos.Api**: endpoints, autenticação e configuração. Os casos de uso ficam aqui, em pastas `Features/<Assunto>`.
+- **Orcamentos.Domain**: entidades e regras de negócio, sem depender de banco nem de framework.
+- **Orcamentos.Infrastructure**: acesso ao banco (EF Core) e geração de PDF.
 
 Uma camada "Aplicação" separada foi deixada de fora de propósito, para caber em 1 mês. Se o projeto crescer, os casos de uso saem de `Features/` e viram um projeto próprio.
 

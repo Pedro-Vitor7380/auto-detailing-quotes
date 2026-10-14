@@ -6,8 +6,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Oficina.Domain\Oficina.Domain.csproj" />
-    <ProjectReference Include="..\Oficina.Infrastructure\Oficina.Infrastructure.csproj" />
+    <ProjectReference Include="..\Orcamentos.Domain\Orcamentos.Domain.csproj" />
+    <ProjectReference Include="..\Orcamentos.Infrastructure\Orcamentos.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

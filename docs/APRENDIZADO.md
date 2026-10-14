@@ -141,7 +141,7 @@ A API não sabe onde o banco está. Ela recebe o endereço **por configuração*
 
 ## Passo 3 — Estrutura do back-end .NET
 
-### Solution (`Oficina.slnx`) e projetos (`.csproj`)
+### Solution (`Orcamentos.slnx`) e projetos (`.csproj`)
 - **Projeto (`.csproj`):** uma unidade de código que compila para uma DLL ou um executável. Lista os pacotes e os outros projetos de que depende.
 - **Solution (`.slnx`):** agrupa os projetos para compilar e abrir todos juntos. O `.slnx` é o formato novo, em XML legível, que virou padrão no .NET 10. O antigo era o `.sln`.
 - **Onde:** `backend/`
@@ -149,17 +149,17 @@ A API não sabe onde o banco está. Ela recebe o endereço **por configuração*
 ### Os 4 projetos e quem depende de quem
 
 ```
-Oficina.Api ──────────► Oficina.Infrastructure ──► Oficina.Domain
+Orcamentos.Api ──────────► Orcamentos.Infrastructure ──► Orcamentos.Domain
      └──────────────────────────────────────────────►    ▲
-Oficina.Domain.Tests ────────────────────────────────────┘
+Orcamentos.Domain.Tests ────────────────────────────────────┘
 ```
 
 | Projeto | Responsabilidade | Template |
 |---|---|---|
-| `Oficina.Domain` | Entidades e regras de negócio (ex.: "orçamento aprovado não pode ser editado"). **Não depende de ninguém.** | `classlib` |
-| `Oficina.Infrastructure` | Detalhes técnicos: banco de dados (EF Core) e PDF. | `classlib` |
-| `Oficina.Api` | Recebe as requisições HTTP, faz a autenticação e junta tudo. É o executável. | `webapi` |
-| `Oficina.Domain.Tests` | Testes automatizados das regras do Domínio. | `xunit` |
+| `Orcamentos.Domain` | Entidades e regras de negócio (ex.: "orçamento aprovado não pode ser editado"). **Não depende de ninguém.** | `classlib` |
+| `Orcamentos.Infrastructure` | Detalhes técnicos: banco de dados (EF Core) e PDF. | `classlib` |
+| `Orcamentos.Api` | Recebe as requisições HTTP, faz a autenticação e junta tudo. É o executável. | `webapi` |
+| `Orcamentos.Domain.Tests` | Testes automatizados das regras do Domínio. | `xunit` |
 
 - **Por que separar:** a regra de negócio é a parte mais valiosa e a que menos deveria mudar. Se um dia trocarmos o PostgreSQL por outro banco, ou a API por outra tecnologia, o Domínio continua igual.
 - **O compilador garante a regra:** o Domínio não tem referência para a Infraestrutura, então é **impossível** usar o banco dentro dele. O código nem compila.
@@ -203,9 +203,9 @@ Ele tem três partes, e essa ordem vale para toda API ASP.NET Core:
 - Ou seja: o HTTPS existe, só não é responsabilidade da API.
 
 ### Arquivo `.http`
-- `Oficina.Api.http` guarda requisições de teste prontas. No VS Code, com a extensão **REST Client**, um clique em "Send Request" envia a requisição. Ele vai substituir o Postman nos testes do login (passo 7).
+- `Orcamentos.Api.http` guarda requisições de teste prontas. No VS Code, com a extensão **REST Client**, um clique em "Send Request" envia a requisição. Ele vai substituir o Postman nos testes do login (passo 7).
 
 ### `dotnet build`, `dotnet run`, `dotnet test`
 - `dotnet build`: compila tudo. **Sempre rode antes de commitar.**
-- `dotnet run --project src/Oficina.Api`: compila e sobe a API.
+- `dotnet run --project src/Orcamentos.Api`: compila e sobe a API.
 - `dotnet test`: roda os testes. Por enquanto diz "nenhum teste disponível", porque eles chegam na semana 3.

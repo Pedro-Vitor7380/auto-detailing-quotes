@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Orcamentos.Api/Orcamentos.Api.csproj" />
+    <Project Path="src/Orcamentos.Domain/Orcamentos.Domain.csproj" />
+    <Project Path="src/Orcamentos.Infrastructure/Orcamentos.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Orcamentos.Domain.Tests/Orcamentos.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

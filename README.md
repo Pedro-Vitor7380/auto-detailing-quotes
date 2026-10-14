@@ -39,7 +39,7 @@ docker compose ps         # deve mostrar "healthy"
 ```bash
 cd backend
 dotnet build                          # compila todos os projetos
-dotnet run --project src/Oficina.Api  # sobe a API em http://localhost:5080
+dotnet run --project src/Orcamentos.Api  # sobe a API em http://localhost:5080
 ```
 
 O terminal fica ocupado enquanto a API roda (`Ctrl+C` para parar). Com ela no ar, abra no navegador:

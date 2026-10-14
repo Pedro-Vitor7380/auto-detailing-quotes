@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Oficina.Domain\Oficina.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Orcamentos.Domain\Orcamentos.Domain.csproj" />
   </ItemGroup>
 
 </Project>
