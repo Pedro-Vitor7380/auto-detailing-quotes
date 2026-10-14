@@ -43,6 +43,8 @@ cd backend
 dotnet tool restore   # instala o dotnet-ef na versão do projeto
 # connection string do banco local (use a senha definida no .env)
 dotnet user-secrets set "ConnectionStrings:Banco" "Host=localhost;Port=5432;Database=oficina;Username=oficina;Password=<senha>" --project src/Orcamentos.Api
+# chave que assina os tokens de login (gera 48 bytes aleatórios)
+dotnet user-secrets set "Jwt:Chave" "$(openssl rand -base64 48)" --project src/Orcamentos.Api
 # cria as tabelas
 dotnet ef database update --project src/Orcamentos.Infrastructure --startup-project src/Orcamentos.Api
 # cria a oficina e o seu usuário (pergunta os dados no terminal)

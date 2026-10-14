@@ -14,6 +14,15 @@ public class HasherDeSenha
 
     private readonly PasswordHasher<Usuario> _hasher = new();
 
+    public HasherDeSenha() => HashFalso = GerarHash(Guid.NewGuid().ToString());
+
+    /// <summary>
+    /// Hash de uma senha aleatória, usado quando o e-mail do login não existe.
+    /// Verificar contra ele leva o mesmo tempo que verificar um usuário real, então o tempo
+    /// de resposta não revela se o e-mail está cadastrado.
+    /// </summary>
+    public string HashFalso { get; }
+
     public string GerarHash(string senha) => _hasher.HashPassword(null!, senha);
 
     public bool Verificar(string hash, string senhaDigitada) =>
