@@ -35,7 +35,8 @@ export function LoginPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center px-4 py-8">
       <div className="w-full max-w-sm">
-        <h1 className="text-center text-2xl font-bold text-marca-700">Orçamentos</h1>
+        <img src="/icons/logo-256.png" alt="CJ Estética Automotiva" width={128} height={128} className="mx-auto size-32" />
+        <h1 className="mt-4 text-center text-2xl font-bold text-grafite-900">Orçamentos</h1>
         <p className="mt-1 text-center text-slate-500">Entre para continuar</p>
 
         <form onSubmit={aoEnviar} className="mt-8 space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -92,7 +93,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={enviando}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-marca-600 font-semibold text-white hover:bg-marca-700 disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-marca-400 font-semibold text-grafite-900 hover:bg-marca-500 disabled:opacity-60"
           >
             {enviando && <LoaderCircle className="size-5 animate-spin" aria-hidden />}
             {enviando ? 'Entrando...' : 'Entrar'}

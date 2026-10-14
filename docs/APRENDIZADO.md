@@ -667,3 +667,95 @@ Celular ──/api/auth/login──► Vite (PC, porta 5173) ──repassa──
 - O Playwright simula o tamanho de tela **exato** (390 px), sem a limitação de largura mínima do Edge invisível que vimos no passo 8.
 - **As capturas de tela revelaram um bug visual:** no desktop, o botão "Novo orçamento" ocupava a largura inteira. Um elemento `flex` se comporta como **bloco**, e um bloco com largura `auto` ocupa a linha toda. A correção foi `sm:inline-flex`.
 - O script ficou numa pasta temporária, fora do projeto. Testes E2E **permanentes** no repositório podem vir depois.
+
+---
+
+## Passo 10 — PWA: o app instalável, com a identidade da CJ
+
+### PWA (Progressive Web App)
+- **O que é:** um site que pode ser **instalado** como app: ícone na tela inicial, abre em tela cheia (sem a barra do navegador) e abre rápido.
+- **Por que usamos:** evita publicar nas lojas da Apple e do Google (caro, demorado e com revisão), e é o mesmo código para celular e computador.
+- **Três peças:**
+  1. **Manifesto** (`manifest.webmanifest`): o "RG" do app, com nome, ícones, cores e modo de abertura.
+  2. **Service worker** (`sw.js`): um script que o navegador roda **em segundo plano**, entre o app e a internet. Ele guarda os arquivos do app no aparelho (*cache*).
+  3. **HTTPS:** obrigatório (veja abaixo).
+- **`vite-plugin-pwa`** gera o manifesto e o service worker automaticamente no `npm run build`. A configuração fica em `frontend/vite.config.ts`.
+
+### Campos do manifesto
+| Campo | Valor | Para que serve |
+|---|---|---|
+| `name` / `short_name` | "CJ Estética Automotiva — Orçamentos" / "Orçamentos" | O nome curto aparece embaixo do ícone na tela inicial. |
+| `display: standalone` | | Abre como app, sem a barra de endereço. |
+| `start_url: /` | | Onde o app abre ao tocar no ícone. |
+| `theme_color` | `#373334` (grafite) | A cor da barra de status do celular. |
+| `background_color` | `#373334` | A cor da tela de abertura (*splash*) enquanto o app carrega. |
+| `orientation: portrait` | | O app fica em pé, como é usado no pátio. |
+| `icons` | 192, 512 e *maskable* | Os ícones da tela inicial e da tela de abertura. |
+
+### Service worker e cache (Workbox)
+- **Pré-cache:** no build, o Workbox lista os arquivos do app (JS, CSS, HTML e ícones: 16 arquivos, ~760 KB) e o service worker os guarda no aparelho. Da 2ª abertura em diante, a "casca" do app carrega **do celular**, e não da internet.
+- **`navigateFallback: '/index.html'`:** num SPA, `/clientes` não é um arquivo de verdade. O service worker entrega o `index.html` do cache, e o React Router mostra a página certa.
+- **`navigateFallbackDenylist: [/^\/api\//]`:** **a API nunca vem do cache.** Os dados (clientes, orçamentos) sempre vêm do servidor. Como decidido no PROJETO.md, o app **não** funciona offline. Só a casca abre sem internet.
+- **`registerType: 'autoUpdate'`:** quando uma versão nova é publicada, o service worker baixa os arquivos novos e o app se atualiza na próxima abertura.
+- **⚠️ O service worker só existe no build de produção.** Com `npm run dev`, ele não é gerado. Para testar o PWA, use:
+  ```bash
+  npm run build && npm run preview
+  ```
+  O `preview` serve a pasta `dist/` com a mesma porta (5173) e o mesmo proxy `/api` do `dev`.
+
+### HTTPS é obrigatório (e por que o teste no celular fica para o passo 11)
+- Service workers só funcionam em **contexto seguro**: páginas com **HTTPS**, ou `localhost`, que é a exceção para quem desenvolve.
+- **Verificamos:**
+
+| Endereço | Contexto seguro | Service worker |
+|---|---|---|
+| `http://localhost:5173` | sim | disponível |
+| `http://192.168.3.138:5173` (celular na rede) | **não** | **indisponível** |
+
+- **Consequência:** pelo Wi-Fi local, o celular **não** instala o PWA de verdade. No Android, "Adicionar à tela inicial" cria só um atalho comum. Por isso:
+  - **agora**, testamos a instalação **no PC**, pelo `localhost`;
+  - **no passo 11**, o app vai para a Vercel com HTTPS, e aí a instalação funciona no celular.
+- **Por que essa regra existe:** o service worker fica **entre o app e a internet** e pode alterar qualquer resposta. Numa conexão sem HTTPS, alguém na mesma rede poderia trocar o service worker por um malicioso.
+
+### Ícones: um para cada sistema
+| Arquivo | Tamanho | Para quê |
+|---|---|---|
+| `icon-192.png`, `icon-512.png` | 192/512 | Ícone padrão (`purpose: any`), com a logo redonda e os cantos transparentes. |
+| `icon-maskable-512.png` | 512 | **Android:** cada fabricante recorta o ícone num formato (círculo, gota, quadrado arredondado). Só os **80% centrais** são garantidos, então a logo ocupa 78%, sobre fundo grafite. |
+| `apple-touch-icon.png` | 180 | **iPhone:** o iOS ignora os ícones do manifesto e usa este, declarado no `index.html`. Ele **não aceita transparência** (vira preto), então tem fundo grafite. |
+| `favicon-64.png` | 64 | O ícone da aba do navegador. |
+| `logo-256.png` | 256 | A logo exibida na tela de login e na casca. |
+
+- **Como foram gerados:** um script Python com a biblioteca **Pillow**:
+  1. abre a logo original (uma página A4 com bordas brancas);
+  2. encontra o quadrado da logo (a área "não branca": 1979 × 1979 px);
+  3. aplica uma **máscara circular** para os cantos ficarem transparentes. A máscara é desenhada em 4× e reduzida, o que deixa a borda suave (*antialiasing*);
+  4. exporta cada tamanho.
+- **Conferimos simulando o recorte** de cada sistema (círculo do Android, cantos arredondados do iPhone): a logo ficou inteira em todos.
+- A logo original foi movida para `docs/marca/logo-original.jpg`. **Nomes sem espaços** evitam problemas em comandos de terminal.
+
+### Cores da marca e contraste (acessibilidade)
+- **Cores extraídas da logo** com o Pillow, pela média dos pixels de cada região: grafite `#373334` e dourado de `#aa7e1f` (escuro) a `#f6d382` (claro).
+- **Contraste:** a regra WCAG pede pelo menos **4,5:1** entre o texto e o fundo, para texto normal. Medimos antes de escolher:
+
+| Combinação | Contraste | |
+|---|---|---|
+| branco sobre dourado médio | 2,50:1 | ❌ ilegível, principalmente **no sol** |
+| branco sobre dourado escuro | 3,68:1 | ❌ |
+| **grafite sobre dourado claro** `#e0b65a` | 6,53:1 | ✅ botões principais |
+| **dourado claro sobre grafite** | 6,53:1 | ✅ o topo do app no celular |
+| **dourado escuro `#8a6618` sobre branco** | 5,26:1 | ✅ a aba ativa e os links |
+
+- **Lição:** "trocar o azul pelo dourado" teria deixado o botão principal ilegível. Escolher a cor de **cada combinação** com base no contraste faz o app funcionar bem no pátio.
+- Como o app inteiro já usava os tokens `marca-*` (passo 8), a troca de cor foi quase toda num arquivo só, o `src/index.css`. Só os botões mudaram de classe (texto branco → texto grafite).
+
+### Testes do PWA (Playwright, com o build de produção)
+| Verificação | Resultado |
+|---|---|
+| manifesto publicado (`display=standalone`) | ✅ |
+| os 3 ícones do manifesto respondem 200 | ✅ |
+| service worker ativo, controlando a página | ✅ |
+| **sem internet, a tela de login abre** (do cache) | ✅ |
+| o navegador considera o app **instalável** | ✅ (com perfil normal) |
+
+- **Pegadinha do teste:** a 1ª verificação de "instalável" falhou com `in-incognito`. O Playwright usa um perfil **anônimo** por padrão, e **navegadores nunca permitem instalar PWAs em janela anônima**. Com um perfil normal, o resultado foi "instalável". De novo: o problema era da **ferramenta de teste**, não do app.

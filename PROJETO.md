@@ -34,7 +34,7 @@ O projeto tem **dois objetivos ao mesmo tempo**:
 | Validade padrão | **7 dias**. |
 | Desconto | **No total** do orçamento (em R$ ou %). |
 | Login | **Login simples** (e-mail e senha). |
-| Identidade visual | A oficina **tem logo**. As cores do app ainda estão **[A DEFINIR]**. |
+| Identidade visual | Logo da **CJ Estética Automotiva** (`docs/marca/logo-original.jpg`). Cores do app extraídas dela: **dourado** (`#e0b65a`, `#8a6618`) e **grafite** (`#373334`). Botões dourados levam texto grafite, porque branco sobre dourado não tem contraste suficiente. |
 | Prazo do MVP | **1 mês**. |
 | Se o prazo apertar | **Corta-se escopo**. O prazo e a arquitetura são mantidos. |
 | Custo de hospedagem | **Zero**, só planos gratuitos. |
@@ -183,7 +183,7 @@ Uma camada "Aplicação" separada foi deixada de fora de propósito, para caber 
 
 ## 11. Pendências
 
-1. **Cores do app**: derivar da logo ou escolher uma paleta.
+1. ~~**Cores do app**~~: resolvido no passo 10 (dourado e grafite, extraídos da logo).
 2. **Lista real de serviços**, com preços e tempos estimados.
 3. **Dados da oficina para o PDF**: nome, CNPJ, endereço, telefone e redes sociais.
 4. **Hospedagem da API**: escolher entre Render e Azure e testar o tempo para "acordar".

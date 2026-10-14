@@ -73,7 +73,8 @@ npm run dev   # sobe o app em http://localhost:5173
 ```
 
 - **No celular:** com o celular no mesmo Wi-Fi do PC, abra o endereço da linha `Network:` mostrada pelo `npm run dev` (ex.: `http://192.168.x.x:5173`).
-- `npm run build`: checa os tipos e gera a versão de produção em `dist/`.
+- `npm run build`: checa os tipos e gera a versão de produção em `dist/` (com o service worker do PWA).
+- `npm run preview`: serve o build de produção em http://localhost:5173. É assim que se testa o PWA (instalar o app), porque com o `dev` o service worker não existe.
 - `npm run lint`: verifica o código.
 
 ## Fluxo de trabalho (Git)
