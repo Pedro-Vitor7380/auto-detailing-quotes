@@ -9,5 +9,10 @@ export default defineConfig({
     port: 5173,
     strictPort: true, // se a porta estiver ocupada, dá erro em vez de usar outra (o celular espera a 5173)
     host: true, // aceita conexões da rede local, não só do próprio PC: permite testar no celular
+    // Repassa /api/... para a API rodando NO PC. Assim o celular chama o Vite (no PC), e não
+    // "localhost:5080" (que, no celular, seria o próprio celular).
+    proxy: {
+      '/api': 'http://localhost:5080',
+    },
   },
 })

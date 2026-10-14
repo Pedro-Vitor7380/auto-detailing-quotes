@@ -566,3 +566,104 @@ dotnet run --project src/Orcamentos.Api -- criar-usuario
 - **Antes de "consertar", investigamos:** medimos a largura real que a página recebeu, e ela era **496 px**. O Edge invisível tem uma largura mínima de janela e **recortou** a imagem em 390 px.
 - **Solução:** colocar o app dentro de um `<iframe>` de 390 px, que dá à página uma largura real de celular. Aí o layout apareceu correto.
 - **Lição:** quando algo parece errado, primeiro confirme se o problema é do **código** ou da **ferramenta de teste**. "Consertar" o layout teria estragado algo que estava certo.
+
+---
+
+## Passo 9 — Tela de login integrada à API
+
+### O problema do `localhost` no celular
+- Se o front-end chamasse `http://localhost:5080`, funcionaria no PC, mas **no celular `localhost` é o próprio celular**, onde não há API nenhuma.
+- **Em desenvolvimento, a solução é o proxy do Vite** (`server.proxy` no `vite.config.ts`). O app chama só `/api/...`, sem endereço:
+
+```
+Celular ──/api/auth/login──► Vite (PC, porta 5173) ──repassa──► API (PC, porta 5080)
+```
+
+- O navegador acha que está falando só com o Vite, ou seja, **mesma origem**. Por isso não precisa de CORS em desenvolvimento.
+- **Em produção**, o front-end (Vercel) e a API (Render) ficam em endereços diferentes. O endereço da API vem da variável `VITE_API_URL` (veja `frontend/.env.example`).
+
+### CORS (Cross-Origin Resource Sharing)
+- **Origem** = protocolo + domínio + porta. `https://app.vercel.app` e `https://api.onrender.com` são origens **diferentes**.
+- **Regra do navegador:** um site **não pode** ler respostas de outra origem, a menos que essa outra origem **autorize**. Isso impede que um site malicioso use o seu navegador logado para chamar a sua API.
+- **Pré-consulta (*preflight*):** antes de um `POST` com JSON ou com token, o navegador pergunta à API com um `OPTIONS`: "posso?". A API responde com `Access-Control-Allow-Origin: <origem permitida>`.
+- **Na nossa API:** as origens permitidas vêm da configuração `Cors:OrigensPermitidas`. Em desenvolvimento, é `http://localhost:5173`; em produção, será o endereço da Vercel.
+- **Testamos com curl:**
+  - `Origin: http://localhost:5173`: a resposta trouxe `Access-Control-Allow-Origin`.
+  - `Origin: https://site-malicioso.com`: a resposta veio **sem** o cabeçalho, e o navegador bloquearia.
+- **CORS não protege a API de tudo:** quem usa curl ou Postman não passa pelo navegador e ignora o CORS. Quem protege os dados é o **login**. O CORS protege o **usuário**, dentro do navegador.
+- `app.UseCors()` fica **antes** da autenticação: a pré-consulta `OPTIONS` não leva token e não pode ser barrada pelo login.
+
+### O cliente da API (`src/api/cliente.ts`)
+- Uma função única, `requisicao<T>(caminho, opcoes)`, usada por **todas** as chamadas. Ela:
+  1. junta o endereço base (`VITE_API_URL`) com o caminho;
+  2. coloca o cabeçalho `Authorization: Bearer <token>` automaticamente;
+  3. converte o corpo para JSON;
+  4. transforma erros em `ErroDaApi`, com a mensagem pronta (lida do Problem Details da API);
+  5. diferencia **"sem conexão"** (o `fetch` lança erro) de **"a API respondeu com erro"** (`resposta.ok` é falso);
+  6. se receber **401** usando um token, avisa o app que a sessão acabou.
+- **Por que centralizar:** se cada tela fizesse `fetch` do seu jeito, seria fácil esquecer o token ou tratar erros de forma diferente.
+- **`<T>` (genérico):** quem chama diz o tipo da resposta (`requisicao<RespostaLogin>(...)`), e o TypeScript passa a conhecer os campos.
+
+### Onde guardar o token: `localStorage` (e a troca envolvida)
+- **`localStorage`:** um armazenamento do navegador que **sobrevive** a recarregar e fechar a página.
+- **Alternativa mais segura: cookie `HttpOnly`,** que o JavaScript não consegue ler. Mas com o front-end e a API em domínios diferentes (Vercel × Render), cookies entre sites são bloqueados por vários navegadores, principalmente o Safari do iPhone.
+- **O risco do `localStorage`:** se o app tiver uma falha de **XSS** (código malicioso injetado na página), esse código poderia ler o token. A defesa é **não injetar HTML vindo de fora**. O React já escapa todo texto por padrão.
+- **Conclusão:** para este projeto, `localStorage` + `Bearer` é a escolha pragmática e é muito usada no mercado. Fica registrado que existe uma alternativa mais segura e por que ela não foi usada.
+- **`try/catch` em todo acesso:** em modo anônimo ou com armazenamento bloqueado, o `localStorage` pode lançar erro. O app continua funcionando, só não "lembra" o login.
+
+### Por que guardamos também os dados do usuário (não só o token)
+- No plano gratuito do Render, a API "dorme" e pode levar **30 a 60 s** para acordar.
+- Se o app esperasse a API confirmar o login a cada abertura, você veria uma tela de carregamento no pátio.
+- **Solução:** guardar `{ token, expiraEm, usuario }`. O app abre **na hora** com os dados salvos, e confirma com a API (`/api/auth/me`) em **segundo plano**:
+  - se a API responder **401** (token adulterado ou usuário apagado), o app desloga;
+  - se estiver **sem internet**, mantém a sessão.
+- Quando o `expiraEm` passa, a sessão salva é descartada sem nem chamar a API.
+
+### Context API: o usuário logado disponível no app inteiro
+- **O problema:** o menu (nome e botão Sair), a tela de login e a proteção de rotas precisam saber quem está logado. Passar isso por *props* de componente em componente ficaria impraticável.
+- **Context:** o `AuthProvider` envolve o app inteiro (`main.tsx`), e qualquer componente chama `useAuth()` para obter `{ usuario, entrar, sair }`.
+- **Arquivos separados** (`contexto.ts` com o `useAuth` e `AuthProvider.tsx` com o componente): a regra `only-export-components` do lint pede que arquivos de componentes exportem **só componentes**, para o recarregamento instantâneo do Vite funcionar bem.
+
+### Hooks do React usados
+| Hook | Para que serve | Onde usamos |
+|---|---|---|
+| `useState` | um valor que, ao mudar, redesenha o componente | e-mail, senha, erro, "enviando" |
+| `useEffect` | executar algo **depois** de desenhar (ex.: chamar a API) | confirmar a sessão ao abrir o app |
+| `useCallback` | manter a **mesma** função entre redesenhos | `entrar` e `sair` |
+| `useMemo` | manter o **mesmo** objeto entre redesenhos | o valor do contexto |
+| `useContext` | ler um Context | dentro do `useAuth` |
+| `useNavigate`, `useLocation` | navegar por código / saber o endereço atual | redirecionar após o login |
+
+- **`StrictMode`:** em **desenvolvimento**, o React executa os efeitos **duas vezes** de propósito, para revelar bugs. Por isso o `/api/auth/me` aparece duplicado nos logs. Em produção, roda uma vez só.
+
+### Proteção de rotas (`RotaProtegida`)
+- É um componente que fica "em volta" de todas as rotas do app (`rotas.tsx`). Sem usuário, ele redireciona para `/login` com `<Navigate>`.
+- Guarda **de onde a pessoa veio** (`state.voltarPara`). Quem tentou abrir `/clientes` volta para `/clientes` depois do login.
+- `replace`: substitui o endereço no histórico, para o botão "voltar" do celular não cair num ciclo login → página → login.
+- **⚠️ Isso é só conforto visual, não segurança.** Qualquer pessoa pode mexer no JavaScript do navegador. A segurança real está na **API**, que recusa requisições sem token válido (passo 7).
+
+### A tela de login pensada para o celular
+- **`text-base` (16 px) nos campos:** abaixo de 16 px, o Safari do iPhone dá **zoom automático** ao tocar no campo, o que é irritante.
+- **`type="email"` + `inputMode="email"`:** o celular mostra o teclado com `@` e `.com`.
+- **`autoCapitalize="none"`:** o celular não coloca a primeira letra do e-mail em maiúscula.
+- **`autoComplete="email"` / `"current-password"`:** o gerenciador de senhas do celular oferece o login salvo.
+- **Botão de mostrar a senha (ícone de olho):** digitar senha em tela pequena gera erros, e ver o que foi digitado ajuda.
+- **Botão desabilitado e "Entrando..." durante o envio:** evita tocar duas vezes e mostra que algo está acontecendo, o que é importante quando a API está "acordando".
+- **`role="alert"`:** leitores de tela anunciam o erro assim que ele aparece (acessibilidade).
+- **`evento.preventDefault()`:** por padrão, enviar um `<form>` **recarrega a página**. Isso impede, e nós mesmos fazemos a chamada à API.
+
+### Teste ponta a ponta (E2E) com Playwright
+- **O que é:** um script que **controla um navegador de verdade** (o Edge do PC): digita, clica, recarrega e confere o resultado, como um usuário faria.
+- **Rodamos contra o IP da rede** (`http://192.168.3.138:5173`), e não contra `localhost`. É o mesmo caminho do celular, então o teste também prova que o **proxy funciona**.
+- **8 cenários, todos aprovados:**
+  1. sem login, `/clientes` redireciona para `/login`;
+  2. senha errada mostra "E-mail ou senha inválidos.";
+  3. o login correto volta para `/clientes`, de onde a pessoa veio;
+  4. recarregar a página mantém o login;
+  5. abrir `/login` já logado leva para o app;
+  6. depois de "Sair", as páginas voltam a exigir login;
+  7. um **token adulterado** no `localStorage` faz a API responder 401, e o app volta para o login;
+  8. no desktop, o nome do usuário aparece no menu lateral.
+- O Playwright simula o tamanho de tela **exato** (390 px), sem a limitação de largura mínima do Edge invisível que vimos no passo 8.
+- **As capturas de tela revelaram um bug visual:** no desktop, o botão "Novo orçamento" ocupava a largura inteira. Um elemento `flex` se comporta como **bloco**, e um bloco com largura `auto` ocupa a linha toda. A correção foi `sm:inline-flex`.
+- O script ficou numa pasta temporária, fora do projeto. Testes E2E **permanentes** no repositório podem vir depois.
