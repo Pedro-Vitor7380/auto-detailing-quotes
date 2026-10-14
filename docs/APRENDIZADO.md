@@ -490,3 +490,79 @@ dotnet run --project src/Orcamentos.Api -- criar-usuario
 | `/me` com token válido | 200 com os dados do usuário |
 | `/me` com token adulterado | 401 |
 | `/me` com token de um usuário que foi apagado | 401 |
+
+---
+
+## Passo 8 — Front-end: a casca responsiva
+
+### As ferramentas
+| Ferramenta | Para que serve |
+|---|---|
+| **Node.js / npm** | O Node roda JavaScript fora do navegador. O npm instala pacotes (como o NuGet do .NET). |
+| **Vite** | Cria, roda (`npm run dev`) e empacota (`npm run build`) o front-end. Ao salvar um arquivo, a tela atualiza na hora (*Hot Module Replacement*). |
+| **React** | Monta a interface em **componentes**: funções que retornam o "HTML" (JSX) de um pedaço da tela. |
+| **TypeScript** | JavaScript **com tipos**. Pega erros antes de rodar, como o compilador do C#. |
+| **Tailwind CSS** | Estilos direto no HTML, com classes pequenas (`flex`, `p-4`, `text-lg`). |
+| **React Router** | Troca de "página" **sem recarregar** o site (*SPA*, Single Page Application). |
+| **lucide-react** | Ícones (casa, documento, pessoas, ferramenta). |
+| **oxlint** | Verificador de código (*linter*) que aponta erros comuns e más práticas. |
+
+### Arquivos importantes do projeto `frontend/`
+- `package.json`: as dependências e os scripts (`dev`, `build`, `lint`). É o equivalente ao `.csproj`.
+- `package-lock.json`: as versões **exatas** instaladas. **Vai para o Git**, para que todo mundo instale o mesmo.
+- `node_modules/`: os pacotes baixados (milhares de arquivos). **Não vai para o Git**: é recriado com `npm install`.
+- `index.html`: a única página HTML. O React "desenha" tudo dentro de `<div id="root">`.
+- `src/main.tsx`: ponto de partida, como o `Program.cs`.
+- `vite.config.ts`: a configuração do Vite.
+
+### Componentes, props e JSX
+- **Componente:** uma função com nome em PascalCase que retorna JSX: `function InicioPage() { return <section>...</section> }`.
+- **JSX:** parece HTML, mas é JavaScript. Diferenças: `className` em vez de `class`, e `{expressao}` para inserir valores.
+- **Props:** os parâmetros do componente. `<EmConstrucao titulo="Clientes" previsao="semana 2" />` passa `titulo` e `previsao`, e a `interface EmConstrucaoProps` define os tipos.
+- **`.map(...)`:** transforma uma lista de dados numa lista de elementos. Cada item precisa de uma `key` única, para o React saber qual é qual.
+
+### Rotas (`src/rotas.tsx`)
+- `createBrowserRouter` define qual componente aparece em cada endereço (`/clientes` → página de clientes).
+- **Rotas aninhadas:** todas as páginas são "filhas" do `AppLayout`, e cada uma aparece no `<Outlet />` dele. A casca (menu) é desenhada **uma vez**, e só o miolo troca.
+- **`path: '*'`:** qualquer endereço desconhecido mostra "Página não encontrada".
+- **`NavLink`:** um link que sabe se está **ativo**. Usamos isso para destacar a aba atual. O `end` na rota `/` evita que "Início" fique ativo em todas as páginas, já que todo endereço começa com `/`.
+
+### Responsividade com Tailwind: *mobile-first*
+- Uma classe **sem prefixo** vale para **todas** as telas. Com prefixo (`sm:`, `md:`, `lg:`), passa a valer **a partir daquela largura**.
+
+| Prefixo | A partir de | Exemplo de aparelho |
+|---|---|---|
+| (nenhum) | 0 px | qualquer celular |
+| `sm:` | 640 px | celular deitado |
+| `md:` | 768 px | tablet |
+| `lg:` | 1024 px | notebook |
+
+- **Exemplos na nossa casca:**
+  - Barra inferior: `md:hidden`, que aparece no celular e some a partir do tablet.
+  - Menu lateral: `hidden md:flex`, que fica escondido no celular e aparece a partir do tablet.
+  - Cards do início: `grid sm:grid-cols-2 lg:grid-cols-3`, ou seja, 1 coluna no celular, 2 no celular deitado e 3 no notebook.
+  - Botão "Novo orçamento": `w-full sm:w-auto`, largura total no celular (mais fácil de acertar com o polegar) e largura normal em telas maiores.
+- **Por que mobile-first:** o uso principal é no celular, no pátio. Começamos pelo menor e **acrescentamos** para telas maiores.
+
+### Detalhes pensados para o celular
+- **Barra inferior:** fica ao alcance do polegar. Na parte de cima da tela, segurando com uma mão, é difícil alcançar.
+- **Alvos de toque grandes:** cada aba tem 64 px de altura (`h-16`), e o botão principal tem 56 px (`h-14`). O mínimo recomendado é ~44 px.
+- **`pb-24` no conteúdo:** espaço no fim da página para o último item não ficar **escondido atrás** da barra fixa.
+- **Áreas seguras (`env(safe-area-inset-bottom)`):** em celulares com "notch" ou com a barrinha de gestos do iPhone, a barra inferior ganha um espaço extra para não ficar embaixo dela. Precisa de `viewport-fit=cover` no `index.html`.
+- **`min-h-dvh`:** altura de 100% da tela **visível**. No celular, a barra de endereço do navegador aparece e some, e o `dvh` (*dynamic viewport height*) acompanha isso.
+
+### Cores da marca como "tokens"
+- Em `src/index.css`, `@theme` define `marca-50`, `marca-600` etc. Por enquanto, apontam para o azul `sky` do Tailwind.
+- O app inteiro usa `bg-marca-600`, e nunca `bg-sky-600` diretamente. Quando as cores saírem da logo, **muda-se só o `index.css`**.
+
+### Testar no celular pela rede (Wi-Fi)
+- `server.host: true` no `vite.config.ts` faz o Vite aceitar conexões **de outros aparelhos** da rede, e não só do próprio PC (`localhost`).
+- `npm run dev` mostra a linha `Network: http://192.168.x.x:5173`. É esse endereço que se abre no celular.
+- **Requisitos:** o celular e o PC na **mesma rede Wi-Fi**, e o firewall do Windows liberando o Node.js.
+- `strictPort: true`: se a porta 5173 estiver ocupada, o Vite dá erro, em vez de trocar de porta em silêncio, o que faria o endereço do celular parar de funcionar.
+
+### Como verificamos o layout: a armadilha da captura de tela
+- Tiramos capturas com o Edge em modo invisível (*headless*). Na de celular (390 px), o conteúdo **parecia cortado** e a aba "Serviços" sumiu.
+- **Antes de "consertar", investigamos:** medimos a largura real que a página recebeu, e ela era **496 px**. O Edge invisível tem uma largura mínima de janela e **recortou** a imagem em 390 px.
+- **Solução:** colocar o app dentro de um `<iframe>` de 390 px, que dá à página uma largura real de celular. Aí o layout apareceu correto.
+- **Lição:** quando algo parece errado, primeiro confirme se o problema é do **código** ou da **ferramenta de teste**. "Consertar" o layout teria estragado algo que estava certo.
