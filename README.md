@@ -77,6 +77,34 @@ npm run dev   # sobe o app em http://localhost:5173
 - `npm run preview`: serve o build de produção em http://localhost:5173. É assim que se testa o PWA (instalar o app), porque com o `dev` o service worker não existe.
 - `npm run lint`: verifica o código.
 
+## Produção
+
+```
+Vercel (app) ──► Render (API, Docker) ──► Neon (PostgreSQL)
+```
+
+O Render e a Vercel publicam automaticamente a cada merge na `main`.
+
+### Variáveis de ambiente
+
+**Render (API):**
+
+| Variável | Valor |
+|---|---|
+| `ConnectionStrings__Banco` | connection string do Neon (formato .NET) |
+| `Jwt__Chave` | 48 bytes aleatórios (`openssl rand -base64 48`), **diferente** da de desenvolvimento |
+| `Cors__OrigensPermitidas__0` | endereço do app na Vercel (ex.: `https://xxx.vercel.app`) |
+
+**Vercel (app):**
+
+| Variável | Valor |
+|---|---|
+| `VITE_API_URL` | endereço da API no Render (ex.: `https://xxx.onrender.com`) |
+
+### Migrations e usuário em produção
+
+As migrations **não** rodam sozinhas no deploy. Depois de criar ou alterar entidades, aplique a partir do PC, apontando para o Neon (veja `docs/APRENDIZADO.md`, passo 11b).
+
 ## Fluxo de trabalho (Git)
 
 O projeto segue o **GitHub Flow**: a `main` está sempre funcionando. Cada mudança é feita numa branch (`feat/...`, `fix/...`) e entra na `main` por Pull Request.

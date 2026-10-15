@@ -759,3 +759,71 @@ Celular ──/api/auth/login──► Vite (PC, porta 5173) ──repassa──
 | o navegador considera o app **instalável** | ✅ (com perfil normal) |
 
 - **Pegadinha do teste:** a 1ª verificação de "instalável" falhou com `in-incognito`. O Playwright usa um perfil **anônimo** por padrão, e **navegadores nunca permitem instalar PWAs em janela anônima**. Com um perfil normal, o resultado foi "instalável". De novo: o problema era da **ferramenta de teste**, não do app.
+
+---
+
+## Passo 11 — Deploy: o app na internet
+
+### O desenho de produção
+```
+Celular (4G ou Wi-Fi) ──HTTPS──► Vercel (app React) ──HTTPS──► Render (API .NET) ──► Neon (PostgreSQL)
+```
+- **Vercel:** hospeda os arquivos estáticos do front-end (o `dist/`) e entrega o HTTPS pronto.
+- **Render:** roda a API num **container Docker**.
+- **Neon:** PostgreSQL gerenciado na nuvem, com backup e atualizações por conta deles.
+- O **código é o mesmo** do PC. Só a **configuração** muda, via variáveis de ambiente.
+
+### 11a — Preparar o código para produção
+
+#### Docker: imagem, `Dockerfile` e *multi-stage build*
+- **`Dockerfile`:** a receita para montar a imagem da API. O Render lê esse arquivo e monta a imagem sozinho a cada deploy.
+- **Duas etapas (*multi-stage*):**
+  1. **`sdk:10.0`** (grande, com compilador): compila e publica a API (`dotnet publish -c Release`).
+  2. **`aspnet:10.0`** (pequena, só com o runtime): recebe **só o resultado** da etapa 1.
+  - **Por quê:** a imagem final não carrega o compilador nem o código-fonte. Fica menor (356 MB) e mais segura.
+- **Cache de camadas:** copiamos **primeiro só os `.csproj`** e rodamos o `dotnet restore`. Cada instrução do `Dockerfile` vira uma "camada" guardada em cache. Enquanto as dependências não mudam, o Docker reaproveita o restore e só recompila o código.
+- **`USER $APP_UID`:** o processo roda como o usuário comum `app` (conferimos com `whoami`), e não como `root` (administrador). Se alguém explorar uma falha da API, tem menos poder dentro do container.
+- **`ASPNETCORE_HTTP_PORTS=8080`:** a porta em que a API escuta dentro do container.
+- **`.dockerignore`:** o que **não** entra na imagem (`bin/`, `obj/`, testes). É o "`.gitignore` do Docker".
+- **Comandos:**
+  ```bash
+  docker build -t orcamentos-api ./backend              # monta a imagem
+  docker run -p 8080:8080 -e "ConnectionStrings__Banco=..." -e "Jwt__Chave=..." orcamentos-api
+  ```
+
+#### Configuração por variáveis de ambiente (e o `__`)
+- No container não existem User Secrets. A configuração vem de **variáveis de ambiente**.
+- O ASP.NET lê variáveis de ambiente como se fossem o `appsettings.json`, trocando `:` por **`__`** (dois sublinhados), porque alguns sistemas não aceitam `:` em nomes de variáveis:
+
+| No `appsettings.json` / User Secrets | Variável de ambiente |
+|---|---|
+| `ConnectionStrings:Banco` | `ConnectionStrings__Banco` |
+| `Jwt:Chave` | `Jwt__Chave` |
+| `Cors:OrigensPermitidas[0]` | `Cors__OrigensPermitidas__0` |
+
+- **Prioridade:** a variável de ambiente **sobrescreve** o `appsettings.json`. É assim que o mesmo código usa o banco local no PC e o Neon em produção.
+
+#### Testamos o container no PC **antes** de publicar
+| Verificação | Resultado |
+|---|---|
+| `/api/health` (banco local via `host.docker.internal`) | 200 |
+| `/api/auth/me` sem token | 401 |
+| login inválido | 401 |
+| CORS lendo a origem de `Cors__OrigensPermitidas__0` | ✅ |
+| processo rodando como usuário comum | `app` |
+| `/scalar` em produção | **401**, não 404 (veja abaixo) |
+
+- **`host.docker.internal`:** dentro do container, `localhost` é **o próprio container**. É o mesmo problema do celular no passo 9! Esse nome especial aponta para o PC, onde está o banco.
+- **Por que `/scalar` deu 401, e não 404:** em produção o Scalar não existe, e a `FallbackPolicy` (passo 7) exige login **inclusive para endereços inexistentes**. Quem não está logado recebe 401 para tudo que não é público, **sem descobrir o que existe**. A expectativa estava errada, não o código.
+
+#### Três avisos nos logs do container, analisados um a um
+1. **`DataProtection: Storing keys in a directory ... that may not be persisted`:** é a chave que o ASP.NET usa para criptografar **cookies**, e ela se perde quando o container é recriado. **Não nos afeta**, porque usamos JWT, não cookies.
+2. **`libgssapi_krb5.so.2: cannot open shared object file`:** o driver do PostgreSQL (Npgsql) tenta, **por padrão**, negociar criptografia via **Kerberos** (GSSAPI), um sistema de login de redes corporativas. A biblioteca não existe na imagem, então ele registrava o erro e seguia sem ela. Funcionava, mas era um **erro falso** em cada conexão, que poluiria os logs de produção.
+   - **Correção** (`Infrastructure/DependencyInjection.cs`): `GssEncryptionMode = GssEncryptionMode.Disable`, aplicado **no código**, valendo para qualquer connection string. Depois disso: **0 erros** no log.
+3. **`dotnet build` local com 4 erros** (`O arquivo é bloqueado por: Orcamentos.Api`): a API do PC estava rodando (a pegadinha do passo 6). Não era erro de código: a imagem Docker tinha compilado o mesmo código com sucesso. Confirmamos compilando só o projeto alterado.
+- **Lição:** um log de produção limpo é valioso. Se ele vive cheio de erros "que não importam", o erro que importa passa despercebido.
+
+#### `vercel.json`: as rotas de um SPA
+- Abrir `https://.../clientes` direto, ou recarregar nessa página, faria a Vercel procurar um **arquivo** `clientes`, que não existe: **404**.
+- A regra `rewrites` diz: o que não for um arquivo real, entregue o `index.html`, e o React Router mostra a página certa.
+- Arquivos que **existem** (`sw.js`, `manifest.webmanifest`, ícones) continuam sendo entregues normalmente, porque a Vercel procura o arquivo antes de aplicar a regra.
