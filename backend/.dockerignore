@@ -1,0 +1,5 @@
+# Arquivos que NÃO entram no container: compilações locais e testes.
+**/bin/
+**/obj/
+tests/
+*.http

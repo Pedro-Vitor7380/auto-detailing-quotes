@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using Orcamentos.Infrastructure.Dados;
 using Orcamentos.Infrastructure.Seguranca;
 
@@ -20,8 +21,12 @@ public static class DependencyInjection
                 "Connection string 'Banco' não configurada. Em desenvolvimento, use: " +
                 "dotnet user-secrets set \"ConnectionStrings:Banco\" \"<valor>\" --project src/Orcamentos.Api");
 
+        // O Npgsql tenta negociar criptografia via Kerberos (GSSAPI) por padrão. Não usamos Kerberos,
+        // e a biblioteca não existe no container: sem isto, cada conexão registra um erro falso no log.
+        var conexao = new NpgsqlConnectionStringBuilder(connectionString) { GssEncryptionMode = GssEncryptionMode.Disable };
+
         services.AddDbContext<AppDbContext>(options => options
-            .UseNpgsql(connectionString)
+            .UseNpgsql(conexao.ConnectionString)
             .UseSnakeCaseNamingConvention()); // tabelas e colunas em snake_case: padrão do PostgreSQL
 
         services.AddSingleton<HasherDeSenha>();
