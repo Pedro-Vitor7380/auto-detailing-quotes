@@ -827,3 +827,123 @@ Celular (4G ou Wi-Fi) ──HTTPS──► Vercel (app React) ──HTTPS──�
 - Abrir `https://.../clientes` direto, ou recarregar nessa página, faria a Vercel procurar um **arquivo** `clientes`, que não existe: **404**.
 - A regra `rewrites` diz: o que não for um arquivo real, entregue o `index.html`, e o React Router mostra a página certa.
 - Arquivos que **existem** (`sw.js`, `manifest.webmanifest`, ícones) continuam sendo entregues normalmente, porque a Vercel procura o arquivo antes de aplicar a regra.
+
+### 11b — Banco de produção no Neon
+
+#### Escolhas na criação
+- **PostgreSQL 17:** a mesma versão do Docker local. Desenvolvimento e produção iguais evitam surpresas.
+- **Região AWS US East 1 (Virgínia):** o Render não tem servidor no Brasil, e o mais próximo que ele oferece também fica na Virgínia. O que mais pesa é a **API perto do banco**, porque cada tela faz várias consultas, e cada consulta paga a distância entre os dois.
+- **Conexão direta (sem *pooling*):** o *pooler* do Neon (PgBouncer) é útil com muitas conexões simultâneas. Com 1 usuário, a direta é mais simples e evita incompatibilidades.
+
+#### A connection string de produção
+- **Formato .NET** (chave=valor): o Npgsql não entende o formato `postgresql://usuario:senha@host/banco`.
+- `SSL Mode=VerifyFull`: além de **criptografar**, o driver **confere o certificado** do servidor, garantindo que é o Neon de verdade e não um impostor no meio do caminho.
+- `Channel Binding=Require`: uma proteção extra da senha durante o login no banco.
+- Guardada em `backend/.env.producao`, **ignorado pelo Git** (padrão `.env.*` do `.gitignore`, conferido com `git check-ignore`). **Nunca foi colada no chat.**
+
+#### Aplicar migrations em produção a partir do PC
+- A connection string entra como **variável de ambiente** só durante o comando. Ela tem **prioridade** sobre o User Secrets, que aponta para o banco local.
+- **Primeiro uma consulta só de leitura**, para confirmar o alvo:
+  ```bash
+  export ConnectionStrings__Banco="$(cat backend/.env.producao)"
+  dotnet ef migrations list --project src/Orcamentos.Infrastructure --startup-project src/Orcamentos.Api
+  ```
+  A resposta `Inicial (Pending)` provou que era o Neon, porque no banco local essa migration já estava aplicada.
+- **Depois a aplicação:** `dotnet ef database update ...`.
+- **Regra:** antes de qualquer comando que **altera** produção, rode um que só **lê** e confirme que está no lugar certo.
+
+#### Criar o usuário de produção
+- Comando `criar-usuario` rodado **pelo próprio usuário**, para a senha nunca passar por outra pessoa:
+  ```powershell
+  $env:ConnectionStrings__Banco = (Get-Content .env.producao -Raw).Trim()
+  dotnet run --project src/Orcamentos.Api -- criar-usuario
+  Remove-Item Env:ConnectionStrings__Banco
+  ```
+- **Sinal de que está no banco certo:** a primeira linha diz "Nenhuma oficina cadastrada", porque o Neon estava vazio. No banco local, diria "Usando a oficina existente".
+- **`Remove-Item Env:...` no final:** a variável vale enquanto o terminal estiver aberto. Se ela ficasse definida, um `dotnet run` qualquer, depois, usaria o banco de produção **sem você perceber**.
+- **Senha repetida:** a senha de produção ficou igual à local. O risco é baixo (o banco só guarda o hash), mas existe se essa senha for usada em **outros sites**. Ficou anotado: criar um comando `alterar-senha`.
+
+### 11c — API no Render
+
+#### Configuração do serviço
+| Campo | Valor | Por quê |
+|---|---|---|
+| Language | Docker | O Render monta a imagem usando o nosso `Dockerfile`. |
+| Root Directory | `backend` | Onde estão o `Dockerfile` e o código da API. |
+| Region | Virginia | A mesma região do Neon. |
+| Instance | Free | Grátis, mas "dorme" após 15 min sem uso. |
+| Health Check Path | `/api/health` | O Render só põe a nova versão no ar se a API **e o banco** responderem. Uma versão quebrada não substitui a que funciona. |
+| Auto-Deploy | On Commit | Cada merge na `main` publica sozinho. |
+
+#### Variáveis de ambiente
+- `ConnectionStrings__Banco`: a connection string do Neon.
+- `Jwt__Chave`: gerada pelo botão **Generate** do Render. **A chave nunca saiu do Render**, nem pelo PC nem pelo chat. É **diferente** da de desenvolvimento: um token gerado no PC não vale em produção.
+- `PORT=8080`: diz ao Render em que porta a API escuta (a mesma do `Dockerfile`).
+
+#### "Route GET:/api/health not found": o formato do erro também é informação
+- O primeiro teste abriu `https://orcamentos-api.onrender.com` e recebeu `{"message":"Route GET:/api/health not found","error":"Not Found","statusCode":404}`.
+- **Esse não é o formato da nossa API.** É o padrão do **Fastify**, um framework de Node.js. A nossa API responderia 401 para um endereço desconhecido.
+- **Causa:** o nome `orcamentos-api` já pertencia a outra pessoa no Render, que deu à nossa API o endereço **`orcamentos-api-ukyf.onrender.com`**, com sufixo aleatório. Estávamos abrindo o serviço de outra pessoa.
+- **Lição:** sempre confira o endereço **real** que a plataforma atribuiu, e não o que você imagina que ela atribuiu.
+
+### 11d — App na Vercel
+
+- **Root Directory `frontend`**, preset **Vite** detectado sozinho.
+- **`VITE_API_URL`:** o endereço da API no Render, **sem barra no final**.
+- **⚠️ As variáveis `VITE_` são lidas no BUILD, não ao abrir o app.** O valor é **copiado para dentro** do JavaScript gerado. Mudou a variável na Vercel? É preciso fazer um **novo deploy** para valer.
+  - Conferimos isso baixando o JavaScript publicado e procurando o endereço da API dentro dele.
+- `http://` é redirecionado para `https://` automaticamente (308).
+
+### 11e — Ligar tudo e testar
+
+#### O bug da barra final no CORS
+- **Sintoma:** o login no app publicado dava "erro de conexão".
+- **Diagnóstico por eliminação**, testando de fora:
+
+| Suspeita | Teste | Resultado |
+|---|---|---|
+| API fora do ar | `curl /api/health` | ✅ 200, banco ok |
+| Endereço errado no app | procurar o endereço no JavaScript publicado | ✅ correto |
+| CORS | `OPTIONS` com `Origin: https://cj-orcamentos.vercel.app` | ❌ **sem** `Access-Control-Allow-Origin` |
+
+- **Para descobrir o que a API aceitava,** enviamos 5 variações da origem. Só `https://cj-orcamentos.vercel.app/`, **com barra**, era aceita. A variável no Render tinha sido salva **com `/` no final**, e o navegador **sempre** envia a origem **sem** a barra.
+- **Duas correções:**
+  1. **Imediata:** tirar a barra da variável no Render.
+  2. **Definitiva, no código:** a API remove espaços e barras finais das origens configuradas (`Program.cs`). Testado no container com `" https://cj-orcamentos.vercel.app/ "`, e funcionou.
+- **Lição:** quando um erro vem de **configuração** digitada por humanos, além de corrigir o valor, vale deixar o código **tolerante** ao erro previsível. Ele vai se repetir.
+- **Por que o app dizia "erro de conexão":** quando o CORS bloqueia, o navegador **esconde a resposta** do JavaScript. Para o `fetch`, é como se a API nem tivesse respondido, e por isso cai no nosso `catch` de "sem conexão" (passo 9). O detalhe real só aparece no **Console** (F12).
+
+#### Verificações em produção
+| Verificação | Resultado |
+|---|---|
+| CORS liberando só o app da Vercel | ✅ |
+| `http` → `https` | ✅ |
+| `/clientes` aberto direto | ✅ 200 (rewrite) |
+| `/scalar` escondido na API | ✅ 401 |
+| **Contexto seguro (HTTPS)** | ✅ diferente do `192.168...` do passo 10 |
+| **Service worker ativo e app instalável** | ✅ |
+| Navegador → API (login errado mostra a mensagem da API) | ✅ |
+
+#### Teste no celular (feito pelo usuário, no 4G)
+- ✅ Instalado na tela inicial com a logo da CJ.
+- ✅ Abre em tela cheia, com a barra de status grafite.
+- ✅ Login funciona e continua logado depois de fechar e abrir.
+- ✅ **Todos os critérios de aceite da semana 1 foram atendidos.**
+
+#### Quanto tempo a API leva para "acordar"
+- O Render Free **desliga** a API após 15 min sem requisições. A próxima requisição precisa esperar o container subir de novo (*cold start*).
+- **Medição:** depois de 21 minutos sem nenhum acesso:
+
+| Requisição | Tempo |
+|---|---|
+| 1ª, com a API "dormindo" havia 21 min | **25,6 s** |
+| 2ª, logo em seguida | 0,22 s |
+| 3ª | 0,22 s |
+
+- **Por que demora:** o Render precisa ligar o container de novo e o .NET precisa iniciar. Parte do tempo também pode vir do **Neon**, que, no plano gratuito, desliga o banco após alguns minutos sem uso, porque o `/api/health` consulta o banco.
+- **O que já ameniza (passos 9 e 10):** o app **abre na hora**, porque a casca vem do cache do service worker e a sessão vem do `localStorage`. Só a **primeira chamada à API** depois de um tempo parado espera esses ~25 s. Nesse tempo, o botão mostra "Entrando...", em vez de parecer travado.
+- **Opções para o futuro** (decisão em aberto, anotada no PROJETO.md):
+  1. **Aceitar:** abrir o app um pouco antes de chegar ao carro.
+  2. **"Despertador":** um agendamento (ex.: GitHub Actions) que chama a API a cada ~14 min **no horário de funcionamento** da oficina. Atenção: chamar o `/api/health` também mantém o **banco** acordado e consome as horas gratuitas do Neon. O ideal seria um endpoint que **não** consulte o banco.
+  3. **Plano pago do Render** (~US$ 7/mês): a API nunca dorme.
+- **Lição:** o risco anotado no PROJETO.md desde o início foi **medido**, em vez de suposto. Agora a decisão pode ser tomada com um número real.
