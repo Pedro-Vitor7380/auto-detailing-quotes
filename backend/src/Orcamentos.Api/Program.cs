@@ -19,7 +19,12 @@ builder.Services.AddAutenticacao();
 
 // CORS: quais sites (origens) o NAVEGADOR deve deixar chamar esta API.
 // Em produção, a origem do front-end (ex.: https://app.vercel.app) vem da configuração.
-var origensPermitidas = builder.Configuration.GetSection("Cors:OrigensPermitidas").Get<string[]>() ?? [];
+// O navegador envia a origem sem barra no final ("https://app.vercel.app"). Normalizamos a configuração
+// porque um "/" a mais ao colar o endereço fazia a comparação falhar (aconteceu no primeiro deploy).
+var origensPermitidas = (builder.Configuration.GetSection("Cors:OrigensPermitidas").Get<string[]>() ?? [])
+    .Select(origem => origem.Trim().TrimEnd('/'))
+    .Where(origem => origem.Length > 0)
+    .ToArray();
 builder.Services.AddCors(cors => cors.AddDefaultPolicy(politica => politica
     .WithOrigins(origensPermitidas)
     .AllowAnyHeader()

@@ -186,5 +186,8 @@ Uma camada "Aplicação" separada foi deixada de fora de propósito, para caber 
 1. ~~**Cores do app**~~: resolvido no passo 10 (dourado e grafite, extraídos da logo).
 2. **Lista real de serviços**, com preços e tempos estimados.
 3. **Dados da oficina para o PDF**: nome, CNPJ, endereço, telefone e redes sociais.
-4. **Hospedagem da API**: escolher entre Render e Azure e testar o tempo para "acordar".
+4. ~~**Hospedagem da API**~~: resolvido no passo 11. Render Free (Docker, Virgínia) + Neon (us-east-1) + Vercel. **"Acordar" medido: 25,6 s** após 21 min parado (depois, 0,2 s por requisição).
+   - **[A DEFINIR]** Aceitar o tempo, criar um "despertador" no horário de funcionamento ou pagar o plano do Render (~US$ 7/mês). Veja `docs/APRENDIZADO.md`, passo 11e.
 5. **Testes automatizados**: definir quanto testar no MVP (sugestão: testes de unidade das regras de preço e desconto).
+6. **Comando `alterar-senha`**, para trocar a senha de um usuário pelo terminal.
+7. **Nome da oficina em produção** ficou "CJ Estética Automotiva." (com ponto final). Confirmar se corrige.
