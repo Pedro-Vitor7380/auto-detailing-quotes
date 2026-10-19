@@ -8,6 +8,7 @@ import { ClientePage } from './pages/clientes/ClientePage'
 import { ClientesPage } from './pages/clientes/ClientesPage'
 import { NovoClientePage } from './pages/clientes/NovoClientePage'
 import { NaoEncontradoPage } from './pages/NaoEncontradoPage'
+import { OrcamentoPage } from './pages/orcamentos/OrcamentoPage'
 import { CategoriasPage } from './pages/servicos/CategoriasPage'
 import { ServicoFormPage } from './pages/servicos/ServicoFormPage'
 import { ServicosPage } from './pages/servicos/ServicosPage'
@@ -25,7 +26,8 @@ export const rotas = createBrowserRouter([
         children: [
           { index: true, element: <InicioPage /> },
           { path: 'orcamentos', element: <EmConstrucao titulo="Orçamentos" previsao="semana 3" /> },
-          { path: 'orcamentos/novo', element: <EmConstrucao titulo="Novo orçamento" previsao="semana 3" /> },
+          { path: 'orcamentos/novo', element: <OrcamentoPage /> },
+          { path: 'orcamentos/:id', element: <OrcamentoPage /> },
           { path: 'clientes', element: <ClientesPage /> },
           { path: 'clientes/novo', element: <NovoClientePage /> },
           { path: 'clientes/:id', element: <ClientePage /> },

@@ -1450,3 +1450,66 @@ db.Orcamentos.Where(o => o.Status == Enviado && o.Validade < hoje)
 | Numeração | ✅ 10 simultâneos com números seguidos; erro não gasta número |
 | Isolamento | ✅ a oficina B não lista, não lê, não duplica e não usa o cliente de A |
 | Proteções | ✅ cliente e veículo com orçamentos dão 409; rascunho exclui |
+
+## Passo 19 — Tela do orçamento
+
+### O desenho, pensado para o pátio
+| Parte | Decisão | Por quê |
+|---|---|---|
+| Tela | Uma só, rolando: cliente → serviços → desconto/validade → observações | Sem "próximo, próximo": tudo à vista |
+| Total | **Barra fixa embaixo**, com o total e o botão Salvar | Sempre visível, ao alcance do polegar |
+| Cliente | Busca por nome ou placa; **cliente novo** e **outro veículo** sem sair da tela | O cliente chega no pátio e ainda não está cadastrado |
+| Serviços | Seletor em **tela cheia** (no computador, um painel lateral) | Lista grande espremida no meio do formulário não funciona no celular |
+| Mesmo serviço 2× | **Soma na quantidade**, em vez de repetir a linha | Martelinho em 2 portas = "2×" |
+| Quantidade | Botões **− / +** | Mais fácil com uma mão do que digitar |
+| Ajuste | A faixa do catálogo aparece embaixo do valor, e o ajuste vira um selo (**+R$ 30,00 pelo estado**) | Mostra na hora quanto o estado do carro mudou o preço |
+| Status | Botões no topo, **bloqueados enquanto houver alteração não salva** | Senão daria para aprovar um orçamento com valores diferentes dos da tela |
+| Aprovado/recusado/expirado | Vira um **resumo só de leitura** + "Duplicar" | É a regra do Domínio, refletida na tela |
+
+### `useFieldArray` e `useWatch` (React Hook Form)
+- **`useFieldArray`** controla a **lista de itens** dentro do formulário: `append` (adicionar), `remove` e `update`. Cada linha recebe uma `key` estável (`campo.chave`), para o React não confundir as linhas quando uma do meio é removida.
+- **`useWatch`** "assiste" aos campos e re-renderiza quando mudam. É o que faz o total mudar **a cada toque**:
+  ```ts
+  const itens = useWatch({ control, name: 'itens' })
+  const totais = calcularTotais(paraCalculo(itens), descontoTipo, desconto)
+  ```
+- **`calculos.ts`** repete as fórmulas do Domínio (soma, desconto que nunca passa do subtotal, arredondamento "da escola"). É só para mostrar; **quem manda é a API**, e depois de salvar a tela mostra os valores que ela devolveu.
+
+### Pegadinha 1: depois de salvar, os itens duplicariam
+Um item novo não tem `id`, e a API cria o item e devolve o `id` dele. Se o formulário continuasse com os itens **sem `id`**, o próximo "Salvar" os enviaria como novos de novo, e a API criaria **outra cópia**.
+
+**Correção:** depois de cada salvamento, `reset(paraValores(resposta))` recarrega o formulário com o que a API devolveu, já com os ids. O teste prova isso: ele salva, altera, salva de novo, recarrega a página, e continuam sendo **3 itens**, não 5.
+
+### Pegadinha 2: formulário dentro de formulário
+O cadastro rápido de cliente ficava num `<form>` **dentro** do `<form>` do orçamento. Ao tocar em "Cadastrar e usar", **a página inteira recarregou** e nada foi salvo.
+- **Diagnóstico** (com o Playwright registrando requisições e o console): os arquivos do app foram baixados de novo depois do clique (recarga), e o React avisava no console: *"`<form>` cannot contain a nested `<form>`"*.
+- **Primeira hipótese, errada:** que o botão pertencia ao formulário de fora. O teste mostrou que não, porque o React cria os elementos direto no DOM. Mesmo assim, o navegador não sabe lidar com o envio de um formulário aninhado, e a página recarrega.
+- **Correção:** o seletor de cliente usa `<div>`, e os botões chamam `handleSubmit(...)` direto (`type="button"`). Agora o console fica **sem nenhum erro**.
+
+### Pegadinha 3: Enter enviava o orçamento sem querer
+Apertar Enter ("Ir", no teclado do celular) em **qualquer** campo envia o formulário, comportamento padrão do HTML. Buscar um cliente e tocar "Ir" tentaria salvar o orçamento. Agora o `onKeyDown` do formulário ignora Enter nos campos de texto, e só o botão Salvar salva.
+
+### Outros detalhes
+- **Datas sem fuso:** `new Date("2026-10-26")` é meia-noite **em UTC**, que no Brasil ainda é o dia 25. As funções `formatarData`, `hojeIso` e `somarDias` trabalham com o texto `"2026-10-26"` direto, ou com meio-dia, para nunca "voltar um dia".
+- **Validade de um orçamento novo:** se você não mexer no campo, o app não manda a data, e a API usa o padrão dela (hoje + 7, no fuso de São Paulo). Assim, o relógio do celular não decide a data.
+- **O valor é formatado ao sair do campo** ("150" vira "150,00"), para todos os itens ficarem no mesmo formato.
+- **`SeloDeStatus`:** uma cor para cada status, sempre texto escuro sobre fundo claro (contraste acima de 4,5:1).
+
+### Testes feitos (Playwright, no Edge, com 360 px e 1280 px)
+**27 verificações, todas certas** (depois das correções acima e de duas esperas que faltavam no próprio teste):
+
+| Etapa | O que foi conferido |
+|---|---|
+| Sem cliente | ✅ "Escolha o cliente e o veículo." |
+| Cliente novo na hora | ✅ cadastrado e já selecionado (placa normalizada) |
+| Seletor | ✅ marca "Adicionado"; tocar 2× no martelinho vira "2×" e **uma** linha |
+| Total ao vivo | ✅ 360 → 390 (ajuste para 150) → 440 (avulso) → 396 (10%) → 400 (R$ 40) |
+| Ajuste e faixa | ✅ "+R$ 30,00 pelo estado"; "Catálogo: R$ 120,00 a R$ 180,00" |
+| Desconto inválido | ✅ "Maior que o subtotal." |
+| Salvar | ✅ abre ORC-2026-0001 como rascunho; total R$ 400,00 vindo da API |
+| Salvar 2× e recarregar | ✅ **3 itens** (não duplicou), total 550, observação mantida |
+| Alteração pendente | ✅ status bloqueado, com aviso |
+| Enviar → Aprovar | ✅ vira resumo só de leitura |
+| Duplicar → Excluir | ✅ ORC-2026-0002 rascunho com o mesmo total; excluir volta para a lista |
+| Computador | ✅ busca de cliente existente com 1 carro já seleciona direto |
+| Layout | ✅ sem rolagem horizontal em 360 px; console sem erros |
