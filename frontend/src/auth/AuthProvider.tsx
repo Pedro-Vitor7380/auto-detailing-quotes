@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { apiAuth, type Usuario } from '../api/auth'
 import { definirAoSessaoExpirar } from '../api/cliente'
+import { queryClient } from '../api/queryClient'
 import { lerSessao, removerSessao, salvarSessao } from './armazenamentoSessao'
 import { AuthContexto } from './contexto'
 
@@ -11,6 +12,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sair = useCallback(() => {
     removerSessao()
+    // Apaga o cache das consultas: quem entrar depois neste aparelho não pode ver dados de outra conta.
+    queryClient.clear()
     setUsuario(null)
   }, [])
 
