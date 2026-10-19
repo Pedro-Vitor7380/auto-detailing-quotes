@@ -1109,3 +1109,69 @@ Para provar o isolamento, o teste criou **duas oficinas** com um usuário tempor
 ### Ficou para depois
 - **Busca sem acento** ("higienizacao" achar "Higienização"). Precisa da extensão `unaccent` do PostgreSQL. Com 36 serviços e filtro por categoria, não é urgente.
 - **Paginação:** o plano citava, mas 36 serviços cabem numa resposta só (alguns KB). Paginar agora seria complexidade sem benefício. Entra quando alguma lista crescer, provavelmente a de orçamentos.
+
+### Como o passo 13 foi testado (sem o seu login)
+O teste pelo VS Code não funcionou do seu lado, então foi feito por script, em duas etapas:
+1. **O próprio `Orcamentos.Api.http`**, executado por um script que lê o arquivo e roda as requisições em ordem, substituindo `{{baseUrl}}`, `{{login.response.body.token}}` etc., como o REST Client faria. As 10 requisições responderam o esperado (200, 201, 400, 204...). Isso também prova que o arquivo está correto para você usar depois.
+2. **O teste de isolamento**, com duas oficinas: 23 de 23 verificações certas. Na primeira tentativa, uma verificação falhou porque sobrou no banco um serviço da etapa 1, desativado pelo `.http`. Era um problema do teste, que não começava com o banco limpo. Com o banco limpo, tudo passou.
+
+Em todos os testes, o login foi feito com **usuários temporários**, criados com `criar-usuario` e apagados no final. A sua senha nunca é usada.
+
+## Passo 14 — Telas do catálogo
+
+### O que foi feito
+| Tela | Rota | O que faz |
+|---|---|---|
+| Lista de serviços | `/servicos` | Busca, filtro por categoria, "mostrar desativados", agrupado por categoria |
+| Novo / editar serviço | `/servicos/novo`, `/servicos/:id` | Formulário com validação; na edição, botão desativar/reativar |
+| Categorias | `/servicos/categorias` | Criar, renomear e excluir (excluir só sem serviços) |
+
+### TanStack Query: o "cache" das chamadas à API
+Até o passo 9, cada tela chamava a API "na mão" com `useState` + `useEffect`, e precisava cuidar sozinha de carregando, erro e dados. O **TanStack Query** faz isso por nós:
+```tsx
+const servicos = useQuery({ queryKey: ['servicos'], queryFn: apiCatalogo.listarServicos })
+// servicos.isPending, servicos.isError, servicos.data
+```
+- **`queryKey`** é o nome da gaveta onde a resposta fica guardada. Duas telas que pedem `['categorias']` usam a **mesma** resposta, sem chamar a API duas vezes.
+- **`staleTime: 30s`**: durante 30 segundos, o dado é "fresco". Ir para outra tela e voltar mostra a lista **na hora**, sem esperar a API. Isso ajuda muito com a API dormindo no Render.
+- **`useMutation`** é para o que **altera** dados (criar, salvar, desativar). Ele dá `isPending` (para o botão mostrar "Salvando...") e `error` (para mostrar a mensagem da API).
+- **`invalidateQueries`**: depois de salvar, avisa que a gaveta `['servicos']` está desatualizada, e ela é buscada de novo.
+- **`retry`**: falha de rede ou do servidor tenta de novo até 2 vezes; erro 4xx (ex.: 409, nome repetido) não, porque repetir não muda o resultado.
+- **Ao sair, o cache é apagado** (`queryClient.clear()`). Sem isso, outra conta logada no mesmo celular veria, por um instante, os dados da anterior.
+
+### React Hook Form + Zod: formulários com validação
+- **Zod** descreve as regras num **esquema**: `nome: z.string().trim().min(1, 'Informe o nome do serviço.')`. Regras que envolvem dois campos, como "máximo ≥ mínimo", ficam num `.refine` do objeto, com `path` dizendo embaixo de qual campo o erro aparece.
+- **React Hook Form** guarda valores e erros sem um `useState` por campo. `register('nome')` liga o campo ao formulário, e `zodResolver(esquema)` faz o formulário usar o Zod para validar.
+- **As mesmas regras ficam no front e na API, de propósito.** No front, elas existem para o usuário ver o erro **na hora**, embaixo do campo, sem esperar a API. Na API (Domínio), elas são a **garantia**, porque o front pode ser burlado (qualquer pessoa pode chamar a API direto). Erros que só o servidor sabe, como "nome repetido", aparecem na caixa vermelha acima do botão.
+
+### Decisões de interface para o pátio
+- **Busca no próprio celular:** a lista inteira vem numa chamada só, e o filtro roda no aparelho. Com dezenas de serviços, o resultado é instantâneo a cada letra, sem depender da internet.
+- **Busca sem acento:** `normalize('NFD')` separa a letra do acento ("ç" vira "c" + "¸"), e a expressão `\p{Diacritic}` remove os acentos. Assim, "vitrificacao" acha "Vitrificação". Isso resolveu no front o item "busca sem acento" que tinha ficado para depois no passo 13.
+- **Preço em reais do jeito brasileiro:** o campo aceita "1.500", "1.500,00", "150" e "R$ 80" (`lerValorEmReais`). `inputMode="decimal"` abre o teclado numérico no celular. **Máximo vazio = preço fixo.**
+- **Tempo em horas e minutos**, e não só em minutos: é mais fácil digitar "16 h" do que "960". A API continua recebendo minutos.
+- **Excluir categoria com serviços** já vem desabilitado na tela. A API também recusaria, mas assim ninguém tenta à toa.
+- **Filtro por categoria** em "pílulas" que rolam para o lado no celular, em vez de quebrar em várias linhas.
+
+### Pegadinhas deste passo
+1. **`@hookform/resolvers` 6.0 não instalava** (conflito de dependências opcionais, ERESOLVE). Usamos a **5.9**, que é estável e já suporta o Zod 4. Uma versão nova demais nem sempre é a melhor escolha.
+2. **O dado antigo aparecia por um instante.** Depois de desativar um serviço, a lista ainda o mostrava como ativo. O `invalidateQueries` só busca de novo as consultas **na tela agora**, e a lista não estava aberta. Ao voltar, ela mostrava o cache antigo até a busca nova terminar. **Correção:** `refetchType: 'all'`, que busca antes de navegar. O teste automático pegou isso.
+3. **O `Intl` usa espaço inseparável** (U+00A0) entre "R$" e o número, para o valor nunca quebrar de linha. Na tela não se nota diferença, mas uma comparação de texto no teste falhou por causa disso.
+
+### Testes feitos (Playwright, no Edge, com a API e o Vite rodando)
+Feitos com 360 px de largura, que é um celular pequeno, e depois com 1280 px.
+
+| Caso | Resultado |
+|---|---|
+| Catálogo vazio orienta a criar categoria primeiro | ✅ |
+| Criar 2 categorias / repetida (em minúsculas) mostra o erro da API | ✅ / ✅ |
+| Enviar o formulário vazio mostra os 4 erros embaixo dos campos | ✅ |
+| Máximo menor que o mínimo é barrado | ✅ |
+| Salvar volta para a lista com "R$ 1.500,00 a R$ 3.000,00 · 16 h" | ✅ |
+| Preço fixo mostra um valor só; 90 min vira "1 h 30" | ✅ |
+| Sem rolagem horizontal em 360 px | ✅ |
+| Busca "vitrificacao" (sem acento) / filtro por categoria | ✅ / ✅ |
+| Edição vem preenchida ("1.500,00", 16 h) e a alteração aparece na lista | ✅ |
+| Desativar some da lista; "Mostrar desativados" traz de volta | ✅ (depois da correção da pegadinha 2) |
+| Categoria com serviço: excluir desabilitado; contagem "1 serviço" | ✅ |
+| Renomear categoria aparece na lista de serviços | ✅ |
+| Depois de sair, nada do catálogo fica na tela | ✅ |
