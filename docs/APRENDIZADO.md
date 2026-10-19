@@ -1628,3 +1628,67 @@ O botão fica **bloqueado com alterações não salvas**: o PDF sairia com os va
 | Botão no computador | ✅ abre numa aba nova |
 | Alteração não salva | ✅ PDF bloqueado |
 | Tela do orçamento (passo 19) de novo | ✅ 27 de 27, nada quebrou |
+
+### Em produção
+- Migration `LogoDaOficina` aplicada no Neon.
+- `definir-logo docs/marca/logo-pdf.png` rodado contra o banco de produção: "Logo da oficina CJ Estética Automotiva gravada (147 KB)".
+
+## Passo 22 — Enviar pelo WhatsApp
+
+### O fluxo
+| Onde | O que acontece |
+|---|---|
+| **Celular** | O botão abre o "compartilhar" do sistema (**Web Share API**) com o **PDF anexado** e uma mensagem. Você escolhe o WhatsApp e o contato. |
+| **Computador** | Navegadores de computador geralmente não compartilham arquivos. O app **baixa o PDF** e abre o **WhatsApp Web** (`wa.me/5511...?text=...`) na conversa do cliente, com a mensagem pronta. Você arrasta o PDF para a conversa. |
+| **Depois** | Um **rascunho vira "Enviado"** sozinho. **Cancelar** o compartilhar não muda nada. |
+
+A mensagem que acompanha o PDF:
+```
+Olá, Roberta! Segue o orçamento ORC-2026-0001 para o Fiat Pulse (placa ZAP1B23).
+Total: R$ 150,00, válido até 26/10/2026.
+Qualquer dúvida, é só responder esta mensagem.
+```
+
+### Pegadinha: o navegador só compartilha "dentro do toque"
+O `navigator.share` só funciona se for chamado **logo depois** de um toque do usuário (*user activation*). Isso existe para um site não abrir janelas de compartilhar sozinho. Se o app tocasse e **depois** esperasse o PDF chegar da API, o toque "venceria", e o navegador recusaria com `NotAllowedError`.
+
+**Prova** (Edge, `navigator.userActivation.isActive`):
+
+| Momento | O toque ainda vale? |
+|---|---|
+| Logo no toque | ✅ sim |
+| 1 s depois de um `await` | ✅ sim |
+| 6 s depois | ❌ **não** |
+
+Com a API acordando no Render (~25 s, passo 11), seria recusado sempre. **Solução:** o PDF é **preparado assim que o orçamento abre** (`useQuery` com a chave `['orcamentos', id, 'pdf']`). O botão mostra "Preparando o PDF..." até o arquivo estar pronto, e o toque chama o `share` **na hora**, sem nenhum `await` antes.
+
+**De brinde:** como a chave do PDF fica "dentro" de `['orcamentos']`, e todo salvamento invalida `['orcamentos']`, **o PDF é refeito sozinho depois de cada alteração**. O botão "PDF" também passou a reaproveitar esse arquivo (`queryClient.fetchQuery`) em vez de baixar de novo.
+
+### Detectar o que o aparelho sabe fazer
+```ts
+if (navigator.canShare?.({ files: [arquivo], text })) navigator.share(...)
+else /* computador: baixa + wa.me */
+```
+O `?.` evita um erro em navegadores que nem têm `canShare`. A pergunta "este aparelho compartilha **arquivos**?" vale mais do que tentar adivinhar se é celular. Isso se chama **detecção de recurso** (*feature detection*).
+
+### Limites honestos (só dá para conferir num celular de verdade)
+- **O WhatsApp no Android às vezes ignora o texto** quando recebe um arquivo pelo "compartilhar", e só o PDF chega. O nome do arquivo (`ORC-2026-0001.pdf`) já identifica o orçamento.
+- **O app não sabe se a mensagem foi de fato enviada:** o `share` só informa que um app foi escolhido. Por isso, "Enviado" significa "compartilhado".
+
+### Testes feitos (Playwright, com o "compartilhar" simulado)
+No PC não há WhatsApp, então o teste troca `navigator.share` por uma versão que **registra** o que recebeu: os arquivos, o texto e **se a chamada aconteceu dentro do toque**. O PDF foi **atrasado 6 s de propósito**, para provar que a preparação antecipada resolve a pegadinha.
+
+| Caso | Resultado |
+|---|---|
+| PDF ainda chegando: "Preparando o PDF..." e desabilitado | ✅ |
+| Compartilha 1 arquivo `ORC-2026-0001.pdf`, `application/pdf`, 85 KB | ✅ |
+| **`share` chamado dentro do toque, mesmo com o PDF lento** | ✅ |
+| Mensagem com primeiro nome, número, carro, placa, total e validade | ✅ |
+| Rascunho vira "Enviado" | ✅ |
+| Alteração não salva bloqueia o botão | ✅ |
+| Cancelar o compartilhar: continua rascunho, sem erro | ✅ |
+| Computador: baixa o PDF e abre `wa.me/5511955554444?text=...` | ✅ |
+| Computador: avisa para arrastar o PDF; status "Enviado" | ✅ |
+| Regressão: tela do orçamento (27/27) e botão PDF | ✅ |
+
+Duas falhas da primeira rodada eram do **teste**: ele olhou o botão antes de o React redesenhar, e o Edge abriu também a página de downloads, que o teste confundiu com a do WhatsApp. O teste passou a esperar o aviso aparecer e a registrar o endereço que o app manda abrir.
