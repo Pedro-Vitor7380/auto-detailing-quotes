@@ -947,3 +947,79 @@ Celular (4G ou Wi-Fi) ──HTTPS──► Vercel (app React) ──HTTPS──�
   2. **"Despertador":** um agendamento (ex.: GitHub Actions) que chama a API a cada ~14 min **no horário de funcionamento** da oficina. Atenção: chamar o `/api/health` também mantém o **banco** acordado e consome as horas gratuitas do Neon. O ideal seria um endpoint que **não** consulte o banco.
   3. **Plano pago do Render** (~US$ 7/mês): a API nunca dorme.
 - **Lição:** o risco anotado no PROJETO.md desde o início foi **medido**, em vez de suposto. Agora a decisão pode ser tomada com um número real.
+
+---
+
+# Semana 2
+
+## Passo 12 — Comandos de administração: `alterar-senha` e `alterar-oficina`
+
+### O que foi feito
+- **`alterar-senha`**: troca a senha de um usuário pelo terminal. Pede o e-mail e a nova senha duas vezes, sem mostrá-la na tela.
+- **`alterar-oficina`**: altera nome, CNPJ, telefone e endereço da oficina, que são os dados do cabeçalho do PDF. Cada pergunta mostra o valor atual entre colchetes; **Enter mantém** e **`-` apaga**.
+- As perguntas que os três comandos compartilham saíram do `CriarUsuarioComando` e foram para `Comandos/Terminal.cs`. Isso é uma **refatoração**: o comportamento continua o mesmo, só o código ficou num lugar só. O terceiro comando foi o sinal: com três cópias da mesma leitura de senha, uma correção feita em uma delas seria esquecida nas outras.
+
+### Por que `alterar-senha` não pede a senha atual
+Quem roda o comando já tem a **connection string** do banco, ou seja, já tem acesso total aos dados. Pedir a senha antiga não protegeria nada. Isso é um **reset de administrador**. Quando existir uma tela "trocar minha senha" dentro do app, aí sim a senha atual será pedida, porque quem usa o app não tem acesso ao banco.
+
+### Escolher o comando com `switch`
+O `Program.cs` olha o primeiro argumento e escolhe a função do comando:
+```csharp
+Func<IServiceProvider, Task<int>>? comando = args.FirstOrDefault() switch
+{
+    CriarUsuarioComando.Nome => CriarUsuarioComando.ExecutarAsync,
+    AlterarSenhaComando.Nome => AlterarSenhaComando.ExecutarAsync,
+    AlterarOficinaComando.Nome => AlterarOficinaComando.ExecutarAsync,
+    _ => null,   // nenhum comando: sobe o servidor web normalmente
+};
+```
+- `Func<IServiceProvider, Task<int>>` é o **tipo de uma função**: ela recebe os serviços e devolve, de forma assíncrona, um número (o código de saída). Guardamos **a função em si**, sem executá-la.
+- `switch` como **expressão** (C# 8+) devolve um valor. É um jeito mais curto de fazer uma série de `if/else`.
+- Um comando novo é **uma linha** a mais aqui.
+
+### Como o EF Core sabe o que atualizar
+O `alterar-senha` busca o usuário, chama `usuario.DefinirSenhaHash(...)` e depois `SaveChangesAsync()`. Não existe nenhum "update" escrito à mão, porque o EF **rastreia** (*change tracking*) os objetos que ele mesmo carregou. No `SaveChanges`, ele compara com os valores originais e gera um `UPDATE` só da coluna `senha_hash`.
+
+### Rodar um comando contra a produção
+O mesmo comando funciona com o banco do Neon, trocando só a configuração. No Git Bash:
+```bash
+cd backend
+export ConnectionStrings__Banco="$(tr -d '\r\n' < .env.producao)"
+dotnet run --project src/Orcamentos.Api --no-launch-profile -- alterar-senha
+unset ConnectionStrings__Banco
+```
+No PowerShell:
+```powershell
+cd backend
+$env:ConnectionStrings__Banco = (Get-Content .env.producao -Raw).Trim()
+dotnet run --project src/Orcamentos.Api --no-launch-profile -- alterar-senha
+Remove-Item Env:ConnectionStrings__Banco
+```
+- O `--no-launch-profile` deixa de usar o `launchSettings.json`. Sem ele, o ambiente é `Production` e os **User Secrets** do banco local não são carregados, então não há risco de alterar o banco errado.
+- Foi assim que o nome da oficina em produção foi corrigido: de `CJ Estética Automotiva.` para `CJ Estética Automotiva`, sem o ponto final.
+
+### Testes feitos
+| Caso | Resultado |
+|---|---|
+| E-mail que não existe | ✅ "Nenhum usuário com esse e-mail.", código 1, nem pede a senha |
+| E-mail com maiúsculas (`Teste.Temp@Exemplo.com`) | ✅ encontra o usuário (mesma normalização do login) |
+| Senha curta / confirmação diferente | ✅ pergunta de novo |
+| Login com a **senha nova** | ✅ 200 |
+| Login com a **senha antiga** | ✅ 401 |
+| `alterar-oficina` só com Enter | ✅ nada muda |
+| Nome com acento ("Estética") vindo pelo terminal | ✅ gravado corretamente em UTF-8 |
+
+Os testes de senha usaram um **usuário temporário**, apagado no final. O seu usuário não foi tocado.
+
+### Pergunta: dá para usar o mesmo login em vários celulares ao mesmo tempo?
+> *"Eles são em dois, e quero que tenha apenas um login, da oficina, mas eles usarão um em cada celular. Tem como usar o mesmo login em dispositivos diferentes ao mesmo tempo?"*
+
+**Sim, e já funciona hoje, sem mudar nada.**
+
+- **Por quê:** o login devolve um **token JWT** (passo 7). O servidor **não guarda** quais tokens existem; ele só confere a assinatura de cada token que chega. Cada celular que faz login recebe **o seu próprio token**, e os dois valem ao mesmo tempo, sem "derrubar" um ao outro. Isso se chama autenticação **sem estado** (*stateless*).
+- **O que muda na prática:**
+  1. **Sair em um celular não desloga o outro.** O "Sair" só apaga o token **daquele aparelho**.
+  2. **Trocar a senha não desloga ninguém na hora.** Os tokens já emitidos continuam válidos até expirar (**7 dias**). Se um dia o login vazar ou alguém sair da equipe, troque a senha **e** saiba que o acesso antigo dura até 7 dias. Por isso o `alterar-senha` avisa no final. Se isso virar um problema, a solução conhecida é um **"carimbo de segurança"** (*security stamp*): um valor salvo no usuário e no token, que muda a cada troca de senha e invalida os tokens antigos. Ficou anotado para o futuro.
+  3. **Não dá para saber quem fez o quê.** Com um login só, o app não distingue os dois funcionários. Se isso importar um dia (ex.: "quem fez esse orçamento?"), o caminho é **um usuário por pessoa**. O banco já suporta vários usuários por oficina (`Usuario.OficinaId`), então seria basicamente rodar o `criar-usuario` de novo.
+  4. **Os dois editando o mesmo orçamento ao mesmo tempo:** quem salvar por último vence. Com duas pessoas, cada uma cuidando de um carro, o risco é baixo. Por isso não vamos tratar isso no MVP.
+- **O e-mail do login** pode ser um e-mail da oficina, em vez do seu pessoal. Se quiser, dá para criar esse usuário com o `criar-usuario`.

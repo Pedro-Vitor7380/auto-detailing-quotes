@@ -51,6 +51,15 @@ dotnet ef database update --project src/Orcamentos.Infrastructure --startup-proj
 dotnet run --project src/Orcamentos.Api -- criar-usuario
 ```
 
+Outros comandos de administração (também perguntam os dados no terminal):
+
+```bash
+dotnet run --project src/Orcamentos.Api -- alterar-senha    # troca a senha de um usuário
+dotnet run --project src/Orcamentos.Api -- alterar-oficina  # nome, CNPJ, telefone e endereço (dados do PDF)
+```
+
+Para rodá-los contra o banco de produção, veja `docs/APRENDIZADO.md` (passo 12).
+
 Rodar:
 
 ```bash
