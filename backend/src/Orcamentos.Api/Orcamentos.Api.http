@@ -26,3 +26,54 @@ Authorization: Bearer {{login.response.body.token}}
 
 ### Sem token: deve responder 401
 GET {{baseUrl}}/api/auth/me
+
+# ===== Catálogo (rode o login antes) =====
+
+### Cria uma categoria
+# @name categoria
+POST {{baseUrl}}/api/categorias
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "nome": "Lavagem e higienização"
+}
+
+### Lista as categorias
+GET {{baseUrl}}/api/categorias
+Authorization: Bearer {{login.response.body.token}}
+
+### Cria um serviço na categoria criada acima
+# @name servico
+POST {{baseUrl}}/api/servicos
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "categoriaId": "{{categoria.response.body.id}}",
+  "nome": "Lavagem Detalhada / Premium",
+  "precoMinimo": 120,
+  "precoMaximo": 180,
+  "tempoEstimadoMin": 120
+}
+
+### Faixa inválida: deve responder 400 com a mensagem da regra
+POST {{baseUrl}}/api/servicos
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "categoriaId": "{{categoria.response.body.id}}",
+  "nome": "Serviço com faixa errada",
+  "precoMinimo": 300,
+  "precoMaximo": 100,
+  "tempoEstimadoMin": 60
+}
+
+### Lista os serviços ativos (experimente ?busca=lava ou ?incluirInativos=true)
+GET {{baseUrl}}/api/servicos?busca=lava
+Authorization: Bearer {{login.response.body.token}}
+
+### Desativa o serviço criado acima
+POST {{baseUrl}}/api/servicos/{{servico.response.body.id}}/desativar
+Authorization: Bearer {{login.response.body.token}}

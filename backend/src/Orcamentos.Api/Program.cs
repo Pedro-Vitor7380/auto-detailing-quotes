@@ -1,5 +1,7 @@
 using Orcamentos.Api.Comandos;
+using Orcamentos.Api.Comum;
 using Orcamentos.Api.Features.Auth;
+using Orcamentos.Api.Features.Catalogo;
 using Orcamentos.Infrastructure;
 using Orcamentos.Infrastructure.Dados;
 using Scalar.AspNetCore;
@@ -24,6 +26,10 @@ builder.Services.AddOpenApi();
 builder.Services.AddInfraestrutura(builder.Configuration);
 builder.Services.AddAutenticacao();
 
+// Erros no formato ProblemDetails; regras de negócio violadas viram 400 com a mensagem da regra.
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<TratadorDeErros>();
+
 // CORS: quais sites (origens) o NAVEGADOR deve deixar chamar esta API.
 // Em produção, a origem do front-end (ex.: https://app.vercel.app) vem da configuração.
 // O navegador envia a origem sem barra no final ("https://app.vercel.app"). Normalizamos a configuração
@@ -44,6 +50,7 @@ if (comando is not null)
     return await comando(app.Services);
 
 // ===== 2. Pipeline: o caminho que cada requisição HTTP percorre =====
+app.UseExceptionHandler(); // primeiro: captura exceções de tudo o que vem depois
 app.UseCors();             // antes da autenticação: a "pré-consulta" do navegador (OPTIONS) não leva token
 app.UseAuthentication();   // lê o token do cabeçalho Authorization e descobre QUEM é o usuário
 app.UseAuthorization();    // decide se esse usuário PODE acessar o endpoint
@@ -67,6 +74,8 @@ app.MapGet("/api/health", async (AppDbContext db, CancellationToken ct) =>
     .WithSummary("Verifica se a API e o banco de dados estão no ar");
 
 app.MapAuthEndpoints();
+app.MapCategoriasEndpoints();
+app.MapServicosEndpoints();
 
 await app.RunAsync();
 return 0;

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Orcamentos.Infrastructure.Dados;
 
 namespace Orcamentos.Api.Features.Auth;
 
@@ -15,6 +16,10 @@ public static class AuthConfiguracao
             .ValidateOnStart();
 
         services.AddSingleton<GeradorDeToken>();
+
+        // A oficina do usuário logado, usada pelo filtro global do banco (cada oficina só vê os seus dados).
+        services.AddHttpContextAccessor();
+        services.AddScoped<IOficinaAtual, OficinaAtualDoToken>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 
