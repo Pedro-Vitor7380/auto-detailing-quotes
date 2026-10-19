@@ -24,7 +24,7 @@ public static class ImportarCatalogoComando
 
     public static async Task<int> ExecutarAsync(IServiceProvider services, string? caminho)
     {
-        var arquivoEncontrado = Localizar(caminho);
+        var arquivoEncontrado = Terminal.LocalizarArquivo(caminho);
         if (arquivoEncontrado is null)
         {
             Console.Error.WriteLine($"Arquivo não encontrado: \"{caminho}\". Uso: {Nome} docs/catalogo-inicial.json");
@@ -110,28 +110,5 @@ public static class ImportarCatalogoComando
             Console.Error.WriteLine($"Erro no arquivo: {ex.Message} Nada foi gravado.");
             return 1;
         }
-    }
-
-    /// <summary>
-    /// O "dotnet run --project" executa o programa DENTRO da pasta do projeto (src/Orcamentos.Api),
-    /// não na pasta onde o comando foi digitado. Por isso, um caminho relativo é procurado
-    /// na pasta atual e depois em cada pasta acima, até achar (ex.: a raiz do repositório).
-    /// </summary>
-    private static string? Localizar(string? caminho)
-    {
-        if (string.IsNullOrWhiteSpace(caminho))
-            return null;
-
-        if (Path.IsPathRooted(caminho))
-            return File.Exists(caminho) ? caminho : null;
-
-        for (var pasta = new DirectoryInfo(Environment.CurrentDirectory); pasta is not null; pasta = pasta.Parent)
-        {
-            var candidato = Path.Combine(pasta.FullName, caminho);
-            if (File.Exists(candidato))
-                return Path.GetFullPath(candidato);
-        }
-
-        return null;
     }
 }

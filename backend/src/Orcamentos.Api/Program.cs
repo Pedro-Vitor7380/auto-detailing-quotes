@@ -18,6 +18,7 @@ Func<IServiceProvider, Task<int>>? comando = args.FirstOrDefault() switch
     AlterarOficinaComando.Nome => AlterarOficinaComando.ExecutarAsync,
     // Este recebe o caminho do arquivo (2º argumento): a lambda "encaixa" o argumento extra no mesmo formato.
     ImportarCatalogoComando.Nome => servicos => ImportarCatalogoComando.ExecutarAsync(servicos, args.ElementAtOrDefault(1)),
+    DefinirLogoComando.Nome => servicos => DefinirLogoComando.ExecutarAsync(servicos, args.ElementAtOrDefault(1)),
     _ => null,
 };
 

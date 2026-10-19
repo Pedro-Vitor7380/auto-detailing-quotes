@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Check, Copy, Send, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Check, Copy, FileText, LoaderCircle, Send, Trash2, X } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { apiOrcamentos, chavesOrcamentos, type Orcamento } from '../../api/orcamentos'
@@ -86,6 +86,28 @@ function Detalhe({ orcamento: o, aoMudar }: { orcamento: Orcamento; aoMudar: (o:
     navegar('/orcamentos', { replace: true })
   }
 
+  const pdf = useMutation({
+    mutationFn: async () => {
+      // A aba é aberta ANTES de baixar: o navegador só deixa abrir abas no instante do clique
+      // (depois de um "await", ele trata como pop-up e bloqueia). No celular, baixar é melhor que outra aba.
+      const noComputador = window.matchMedia('(pointer: fine)').matches
+      const aba = noComputador ? window.open('', '_blank') : null
+      try {
+        const url = URL.createObjectURL(await apiOrcamentos.pdf(o.id))
+        if (aba) aba.location.href = url
+        else {
+          const link = Object.assign(document.createElement('a'), { href: url, download: `${o.numero}.pdf` })
+          link.click()
+        }
+        // Libera a memória do arquivo depois de um tempo (a aba/download já o leu).
+        setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      } catch (erro) {
+        aba?.close()
+        throw erro
+      }
+    },
+  })
+
   const bloqueado = acao.isPending || temAlteracoes
   const emAberto = o.status === 'Rascunho' || o.status === 'Enviado'
 
@@ -103,6 +125,10 @@ function Detalhe({ orcamento: o, aoMudar }: { orcamento: Orcamento; aoMudar: (o:
 
       {/* Ações de status: rolam na horizontal no celular, em vez de quebrar em várias linhas */}
       <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
+        {/* PDF bloqueado com alterações pendentes: sairia com os valores antigos, diferentes dos da tela */}
+        <button type="button" disabled={bloqueado || pdf.isPending || o.itens.length === 0} onClick={() => pdf.mutate()} className={`${classeDoBotaoSecundario} h-11 shrink-0 px-3 text-sm`}>
+          {pdf.isPending ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <FileText className="size-4" aria-hidden />} PDF
+        </button>
         {o.status === 'Rascunho' && (
           <button type="button" disabled={bloqueado} onClick={() => executar(() => apiOrcamentos.enviar(o.id))} className={`${classeDoBotaoSecundario} h-11 shrink-0 px-3 text-sm`}>
             <Send className="size-4" aria-hidden /> Marcar como enviado
@@ -135,9 +161,9 @@ function Detalhe({ orcamento: o, aoMudar }: { orcamento: Orcamento; aoMudar: (o:
           </button>
         )}
       </div>
-      {temAlteracoes && <p className="mt-1 text-sm text-amber-800">Salve as alterações para mudar o status.</p>}
+      {temAlteracoes && <p className="mt-1 text-sm text-amber-800">Salve as alterações para gerar o PDF ou mudar o status.</p>}
       <div className="mt-2">
-        <AlertaDeErro erro={acao.error} />
+        <AlertaDeErro erro={acao.error ?? pdf.error} />
       </div>
 
       {o.podeSerEditado ? (

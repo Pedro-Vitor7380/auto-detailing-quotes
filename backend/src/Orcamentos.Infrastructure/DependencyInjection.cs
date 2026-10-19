@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using QuestPDF.Infrastructure;
 using Orcamentos.Infrastructure.Dados;
 using Orcamentos.Infrastructure.Seguranca;
 
@@ -30,6 +31,10 @@ public static class DependencyInjection
             .UseSnakeCaseNamingConvention()); // tabelas e colunas em snake_case: padrão do PostgreSQL
 
         services.AddSingleton<HasherDeSenha>();
+
+        // QuestPDF: licença Community, gratuita para empresas com faturamento anual abaixo de US$ 1 milhão.
+        // Sem esta linha, a biblioteca recusa gerar o PDF (é a forma de ela confirmar que a licença foi lida).
+        QuestPDF.Settings.License = LicenseType.Community;
 
         return services;
     }
