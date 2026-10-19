@@ -2,6 +2,7 @@ using Orcamentos.Api.Comandos;
 using Orcamentos.Api.Comum;
 using Orcamentos.Api.Features.Auth;
 using Orcamentos.Api.Features.Catalogo;
+using Orcamentos.Api.Features.Clientes;
 using Orcamentos.Infrastructure;
 using Orcamentos.Infrastructure.Dados;
 using Scalar.AspNetCore;
@@ -78,6 +79,7 @@ app.MapGet("/api/health", async (AppDbContext db, CancellationToken ct) =>
 app.MapAuthEndpoints();
 app.MapCategoriasEndpoints();
 app.MapServicosEndpoints();
+app.MapClientesEndpoints();
 
 await app.RunAsync();
 return 0;

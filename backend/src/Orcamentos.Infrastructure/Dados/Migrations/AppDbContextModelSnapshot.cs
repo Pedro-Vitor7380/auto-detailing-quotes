@@ -20,6 +20,7 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                 .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "unaccent");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Categoria", b =>
@@ -51,6 +52,42 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .HasDatabaseName("ix_categorias_oficina_id_nome");
 
                     b.ToTable("categorias", (string)null);
+                });
+
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.Cliente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("nome");
+
+                    b.Property<Guid>("OficinaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("oficina_id");
+
+                    b.Property<string>("WhatsApp")
+                        .IsRequired()
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)")
+                        .HasColumnName("whats_app");
+
+                    b.HasKey("Id")
+                        .HasName("pk_clientes");
+
+                    b.HasIndex("OficinaId", "Nome")
+                        .HasDatabaseName("ix_clientes_oficina_id_nome");
+
+                    b.ToTable("clientes", (string)null);
                 });
 
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Oficina", b =>
@@ -205,6 +242,49 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                     b.ToTable("usuarios", (string)null);
                 });
 
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.Veiculo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cliente_id");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<string>("Modelo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("modelo");
+
+                    b.Property<Guid>("OficinaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("oficina_id");
+
+                    b.Property<string>("Placa")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)")
+                        .HasColumnName("placa");
+
+                    b.HasKey("Id")
+                        .HasName("pk_veiculos");
+
+                    b.HasIndex("ClienteId")
+                        .HasDatabaseName("ix_veiculos_cliente_id");
+
+                    b.HasIndex("OficinaId", "Placa")
+                        .IsUnique()
+                        .HasDatabaseName("ix_veiculos_oficina_id_placa");
+
+                    b.ToTable("veiculos", (string)null);
+                });
+
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Categoria", b =>
                 {
                     b.HasOne("Orcamentos.Domain.Entidades.Oficina", null)
@@ -213,6 +293,16 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_categorias_oficinas_oficina_id");
+                });
+
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.Cliente", b =>
+                {
+                    b.HasOne("Orcamentos.Domain.Entidades.Oficina", null)
+                        .WithMany()
+                        .HasForeignKey("OficinaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_clientes_oficinas_oficina_id");
                 });
 
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Servico", b =>
@@ -240,6 +330,28 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_usuarios_oficinas_oficina_id");
+                });
+
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.Veiculo", b =>
+                {
+                    b.HasOne("Orcamentos.Domain.Entidades.Cliente", null)
+                        .WithMany("Veiculos")
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_veiculos_clientes_cliente_id");
+
+                    b.HasOne("Orcamentos.Domain.Entidades.Oficina", null)
+                        .WithMany()
+                        .HasForeignKey("OficinaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_veiculos_oficinas_oficina_id");
+                });
+
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.Cliente", b =>
+                {
+                    b.Navigation("Veiculos");
                 });
 #pragma warning restore 612, 618
         }
