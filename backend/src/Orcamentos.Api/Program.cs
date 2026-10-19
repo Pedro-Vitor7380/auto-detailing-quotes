@@ -5,11 +5,18 @@ using Orcamentos.Infrastructure.Dados;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
-var ehComando = args.FirstOrDefault() == CriarUsuarioComando.Nome;
+// Comandos de terminal: "dotnet run -- <nome>" executa uma tarefa administrativa e encerra.
+Func<IServiceProvider, Task<int>>? comando = args.FirstOrDefault() switch
+{
+    CriarUsuarioComando.Nome => CriarUsuarioComando.ExecutarAsync,
+    AlterarSenhaComando.Nome => AlterarSenhaComando.ExecutarAsync,
+    AlterarOficinaComando.Nome => AlterarOficinaComando.ExecutarAsync,
+    _ => null,
+};
 
 // Em modo comando, esconde os logs informativos (ex.: SQL do EF) para não poluir as perguntas.
 // AddFilter (e não SetMinimumLevel), porque os níveis do appsettings.json teriam prioridade.
-if (ehComando)
+if (comando is not null)
     builder.Logging.AddFilter(nivel => nivel >= LogLevel.Warning);
 
 // ===== 1. Registro de serviços (injeção de dependência) =====
@@ -33,8 +40,8 @@ builder.Services.AddCors(cors => cors.AddDefaultPolicy(politica => politica
 var app = builder.Build();
 
 // ===== Comandos de terminal (executam e encerram, sem subir o servidor web) =====
-if (ehComando)
-    return await CriarUsuarioComando.ExecutarAsync(app.Services);
+if (comando is not null)
+    return await comando(app.Services);
 
 // ===== 2. Pipeline: o caminho que cada requisição HTTP percorre =====
 app.UseCors();             // antes da autenticação: a "pré-consulta" do navegador (OPTIONS) não leva token
