@@ -1,0 +1,246 @@
+{
+  "$comentario": "Carga inicial do catálogo, gerada a partir de docs/catalogo-servicos.md (valores com * lá são estimativas). Importe com: dotnet run --project src/Orcamentos.Api -- importar-catalogo docs/catalogo-inicial.json",
+  "categorias": [
+    {
+      "nome": "Funilaria e pintura",
+      "servicos": [
+        {
+          "nome": "Martelinho de Ouro — Porta",
+          "precoMinimo": 120,
+          "precoMaximo": 300,
+          "tempoEstimadoMin": 90
+        },
+        {
+          "nome": "Martelinho de Ouro — Para-lama",
+          "precoMinimo": 120,
+          "precoMaximo": 280,
+          "tempoEstimadoMin": 60
+        },
+        {
+          "nome": "Martelinho de Ouro — Capô",
+          "precoMinimo": 150,
+          "precoMaximo": 350,
+          "tempoEstimadoMin": 120
+        },
+        {
+          "nome": "Martelinho de Ouro — Teto",
+          "precoMinimo": 180,
+          "precoMaximo": 350,
+          "tempoEstimadoMin": 120
+        },
+        {
+          "nome": "Martelinho de Ouro — Tampa traseira / porta-malas",
+          "precoMinimo": 130,
+          "precoMaximo": 300,
+          "tempoEstimadoMin": 90
+        },
+        {
+          "nome": "Martelinho de Ouro — Coluna / soleira",
+          "precoMinimo": 150,
+          "precoMaximo": 350,
+          "tempoEstimadoMin": 90
+        },
+        {
+          "nome": "Retoque Localizado — Para-choque (dianteiro ou traseiro)",
+          "precoMinimo": 150,
+          "precoMaximo": 350,
+          "tempoEstimadoMin": 120
+        },
+        {
+          "nome": "Retoque Localizado — Porta",
+          "precoMinimo": 180,
+          "precoMaximo": 400,
+          "tempoEstimadoMin": 120
+        },
+        {
+          "nome": "Retoque Localizado — Para-lama",
+          "precoMinimo": 150,
+          "precoMaximo": 350,
+          "tempoEstimadoMin": 120
+        },
+        {
+          "nome": "Retoque Localizado — Capô",
+          "precoMinimo": 200,
+          "precoMaximo": 450,
+          "tempoEstimadoMin": 150
+        },
+        {
+          "nome": "Retoque Localizado — Teto",
+          "precoMinimo": 200,
+          "precoMaximo": 450,
+          "tempoEstimadoMin": 150
+        },
+        {
+          "nome": "Retoque Localizado — Retrovisor",
+          "precoMinimo": 100,
+          "precoMaximo": 200,
+          "tempoEstimadoMin": 60
+        },
+        {
+          "nome": "Pintura — Para-choque (dianteiro ou traseiro)",
+          "precoMinimo": 450,
+          "precoMaximo": 900,
+          "tempoEstimadoMin": 480
+        },
+        {
+          "nome": "Pintura — Para-lama",
+          "precoMinimo": 400,
+          "precoMaximo": 800,
+          "tempoEstimadoMin": 480
+        },
+        {
+          "nome": "Pintura — Porta",
+          "precoMinimo": 500,
+          "precoMaximo": 1000,
+          "tempoEstimadoMin": 480
+        },
+        {
+          "nome": "Pintura — Capô",
+          "precoMinimo": 600,
+          "precoMaximo": 1200,
+          "tempoEstimadoMin": 480
+        },
+        {
+          "nome": "Pintura — Tampa traseira / porta-malas",
+          "precoMinimo": 500,
+          "precoMaximo": 1000,
+          "tempoEstimadoMin": 480
+        },
+        {
+          "nome": "Pintura — Teto",
+          "precoMinimo": 700,
+          "precoMaximo": 1400,
+          "tempoEstimadoMin": 720
+        },
+        {
+          "nome": "Pintura — Retrovisor",
+          "precoMinimo": 150,
+          "precoMaximo": 300,
+          "tempoEstimadoMin": 240
+        }
+      ]
+    },
+    {
+      "nome": "Lavagem e higienização",
+      "servicos": [
+        {
+          "nome": "Lavagem Detalhada / Premium",
+          "precoMinimo": 120,
+          "precoMaximo": 180,
+          "tempoEstimadoMin": 120
+        },
+        {
+          "nome": "Higienização Interna Completa",
+          "precoMinimo": 600,
+          "precoMaximo": 1000,
+          "tempoEstimadoMin": 480
+        },
+        {
+          "nome": "Limpeza Técnica do Motor",
+          "precoMinimo": 150,
+          "precoMaximo": 350,
+          "tempoEstimadoMin": 90
+        }
+      ]
+    },
+    {
+      "nome": "Polimento e proteção",
+      "servicos": [
+        {
+          "nome": "Polimento Técnico — 1 Etapa / Correção Leve",
+          "precoMinimo": 350,
+          "precoMaximo": 700,
+          "tempoEstimadoMin": 240
+        },
+        {
+          "nome": "Polimento Técnico Completo (Múltiplas Etapas)",
+          "precoMinimo": 800,
+          "precoMaximo": 2500,
+          "tempoEstimadoMin": 720
+        },
+        {
+          "nome": "Vitrificação Cerâmica — 1 ano",
+          "precoMinimo": 600,
+          "precoMaximo": 1200,
+          "tempoEstimadoMin": 480
+        },
+        {
+          "nome": "Vitrificação Cerâmica — 3 anos",
+          "precoMinimo": 1500,
+          "precoMaximo": 3000,
+          "tempoEstimadoMin": 960
+        },
+        {
+          "nome": "Vitrificação Cerâmica — 5 anos",
+          "precoMinimo": 3000,
+          "precoMaximo": 5500,
+          "tempoEstimadoMin": 960
+        }
+      ]
+    },
+    {
+      "nome": "Películas",
+      "servicos": [
+        {
+          "nome": "PPF — Faróis (par)",
+          "precoMinimo": 300,
+          "precoMaximo": 600,
+          "tempoEstimadoMin": 120
+        },
+        {
+          "nome": "PPF — Capô",
+          "precoMinimo": 800,
+          "precoMaximo": 2000,
+          "tempoEstimadoMin": 480
+        },
+        {
+          "nome": "PPF — Frontal (capô, para-choque e para-lamas)",
+          "precoMinimo": 2500,
+          "precoMaximo": 5000,
+          "tempoEstimadoMin": 960
+        },
+        {
+          "nome": "PPF — Completo",
+          "precoMinimo": 8000,
+          "precoMaximo": 15000,
+          "tempoEstimadoMin": 1920
+        },
+        {
+          "nome": "Insulfilm — Para-brisa",
+          "precoMinimo": 150,
+          "precoMaximo": 300,
+          "tempoEstimadoMin": 60
+        },
+        {
+          "nome": "Insulfilm — Vidros laterais",
+          "precoMinimo": 150,
+          "precoMaximo": 350,
+          "tempoEstimadoMin": 90
+        },
+        {
+          "nome": "Insulfilm — Vidro traseiro",
+          "precoMinimo": 100,
+          "precoMaximo": 250,
+          "tempoEstimadoMin": 60
+        },
+        {
+          "nome": "Insulfilm — Carro completo",
+          "precoMinimo": 250,
+          "precoMaximo": 800,
+          "tempoEstimadoMin": 180
+        }
+      ]
+    },
+    {
+      "nome": "Restauração",
+      "servicos": [
+        {
+          "nome": "Restauração de Faróis (par)",
+          "precoMinimo": 150,
+          "precoMaximo": 450,
+          "tempoEstimadoMin": 120
+        }
+      ]
+    }
+  ]
+}

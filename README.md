@@ -56,6 +56,7 @@ Outros comandos de administração (também perguntam os dados no terminal):
 ```bash
 dotnet run --project src/Orcamentos.Api -- alterar-senha    # troca a senha de um usuário
 dotnet run --project src/Orcamentos.Api -- alterar-oficina  # nome, CNPJ, telefone e endereço (dados do PDF)
+dotnet run --project src/Orcamentos.Api -- importar-catalogo docs/catalogo-inicial.json  # carga inicial do catálogo
 ```
 
 Para rodá-los contra o banco de produção, veja `docs/APRENDIZADO.md` (passo 12).
