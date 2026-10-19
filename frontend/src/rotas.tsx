@@ -1,6 +1,5 @@
 import { createBrowserRouter } from 'react-router'
 import { RotaProtegida } from './auth/RotaProtegida'
-import { EmConstrucao } from './components/EmConstrucao'
 import { AppLayout } from './layouts/AppLayout'
 import { InicioPage } from './pages/InicioPage'
 import { LoginPage } from './pages/LoginPage'
@@ -9,6 +8,7 @@ import { ClientesPage } from './pages/clientes/ClientesPage'
 import { NovoClientePage } from './pages/clientes/NovoClientePage'
 import { NaoEncontradoPage } from './pages/NaoEncontradoPage'
 import { OrcamentoPage } from './pages/orcamentos/OrcamentoPage'
+import { OrcamentosPage } from './pages/orcamentos/OrcamentosPage'
 import { CategoriasPage } from './pages/servicos/CategoriasPage'
 import { ServicoFormPage } from './pages/servicos/ServicoFormPage'
 import { ServicosPage } from './pages/servicos/ServicosPage'
@@ -25,7 +25,7 @@ export const rotas = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { index: true, element: <InicioPage /> },
-          { path: 'orcamentos', element: <EmConstrucao titulo="Orçamentos" previsao="semana 3" /> },
+          { path: 'orcamentos', element: <OrcamentosPage /> },
           { path: 'orcamentos/novo', element: <OrcamentoPage /> },
           { path: 'orcamentos/:id', element: <OrcamentoPage /> },
           { path: 'clientes', element: <ClientesPage /> },

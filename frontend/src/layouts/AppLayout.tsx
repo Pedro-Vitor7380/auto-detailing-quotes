@@ -49,6 +49,7 @@ export function AppLayout() {
             <LogOut className="size-4" aria-hidden />
             Sair
           </button>
+          <p className="mt-3 text-xs text-slate-500">Versão {__VERSAO_DO_APP__}</p>
         </div>
       </aside>
 

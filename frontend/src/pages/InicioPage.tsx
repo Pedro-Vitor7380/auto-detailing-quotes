@@ -24,6 +24,9 @@ export function InicioPage() {
           </div>
         ))}
       </div>
+
+      {/* Para conferir se o celular já está com a versão mais nova (o app instalado se atualiza sozinho). */}
+      <p className="mt-10 text-center text-xs text-slate-500">Versão {__VERSAO_DO_APP__}</p>
     </section>
   )
 }

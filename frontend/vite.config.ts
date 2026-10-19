@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { execSync } from 'node:child_process'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -15,8 +16,23 @@ const servidor = {
   },
 }
 
+// Versão exibida no app: o commit do build + a data. Serve para conferir se o celular já pegou a versão nova.
+// Na Vercel, o commit vem da variável VERCEL_GIT_COMMIT_SHA; no PC, do próprio Git.
+function versaoDoBuild() {
+  let commit = process.env.VERCEL_GIT_COMMIT_SHA
+  try {
+    commit ??= execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    commit = 'local'
+  }
+  const data = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })
+  return `${commit.slice(0, 7)} · ${data}`
+}
+
 // https://vite.dev/config/
 export default defineConfig({
+  // define: o Vite troca __VERSAO_DO_APP__ pelo texto abaixo no código final (como um "localizar e substituir").
+  define: { __VERSAO_DO_APP__: JSON.stringify(versaoDoBuild()) },
   plugins: [
     react(),
     tailwindcss(),
