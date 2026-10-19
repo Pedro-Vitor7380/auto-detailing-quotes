@@ -17,4 +17,14 @@ public class Relogio(TimeProvider tempo)
 
     /// <summary>O dia de um instante, no fuso da oficina (ex.: a data de emissão impressa no PDF).</summary>
     public static DateOnly DataNoFuso(DateTimeOffset instante) => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instante, FusoDaOficina).DateTime);
+
+    /// <summary>
+    /// Meia-noite de um dia no fuso da oficina, como instante (UTC). Ex.: 01/11/2026 00:00 em São Paulo = 03:00 UTC.
+    /// Serve para filtrar por período no banco, que guarda os instantes em UTC.
+    /// </summary>
+    public static DateTimeOffset InicioDoDia(DateOnly dia)
+    {
+        var meiaNoite = dia.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+        return new DateTimeOffset(meiaNoite, FusoDaOficina.GetUtcOffset(meiaNoite)).ToUniversalTime();
+    }
 }

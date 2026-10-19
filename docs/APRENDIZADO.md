@@ -1738,3 +1738,47 @@ Duas falhas da primeira rodada eram do **teste**: ele olhou o botão antes de o 
 | Orçamento no navegador: barra do total e resumo sem prazo | ✅ 29 de 29 |
 | PDF: sem prazo, com validade (conferido como imagem) | ✅ |
 | Banco e API: nenhum campo de tempo | ✅ |
+
+### A ordem de publicação, quando a migration apaga uma coluna
+- **Migration antes do código novo:** o código antigo ainda lê `tempo_estimado_min`, e o app quebra.
+- **Código novo antes da migration:** o código novo não preenche a coluna, que ainda é obrigatória (`NOT NULL`), e criar serviços ou orçamentos falha.
+
+Os dois caminhos têm uma janela de erro. A escolha foi **código primeiro, migration logo depois**: nessa janela de poucos minutos, **consultar** continua funcionando e só **criar ou alterar** falha. Para ter certeza de que o código novo estava no ar, o GitHub mostrou a publicação da Vercel concluída, e a migration esperou o tempo de build do Render. Num sistema maior, isso se faz em duas etapas, para não haver janela: primeiro tornar a coluna opcional, depois apagá-la.
+
+## Passo 24 — Faturamento previsto no Início
+
+### Os números
+| Card | O que conta | Por quê |
+|---|---|---|
+| **Orçamentos em aberto** | Rascunhos + enviados, e quanto os enviados somam ("R$ 400,00 aguardando o cliente") | O que ainda pode virar dinheiro |
+| **Aprovados no mês** | Quantos foram aprovados no mês escolhido | |
+| **Faturamento previsto** | A soma dos aprovados no mês | A definição do `PROJETO.md` |
+
+As setas ‹ › trocam o mês. Não dá para ir a um mês futuro, que estaria sempre vazio. O card "em aberto" **não depende do mês**: ele mostra o que está pendente **agora**.
+
+### O mês no fuso de São Paulo
+O banco guarda `aprovado_em` em **UTC**. "Outubro" é outubro **em São Paulo**: de 01/10 00:00 (03:00 UTC) até 01/11 00:00 (03:00 UTC). O `Relogio.InicioDoDia` converte a meia-noite de São Paulo para o instante UTC, e o painel filtra `aprovado_em >= início e < fim`.
+
+Sem isso, um orçamento aprovado em **31/10 às 23h30** (02h30 UTC do dia 1º) iria para **novembro**. O teste grava datas nas bordas direto no banco e confere:
+
+| Aprovado em (São Paulo) | Contou em |
+|---|---|
+| 31/10 às 23h30 | ✅ outubro |
+| 01/11 às 00h30 | ✅ novembro |
+| 01/10 às 00h10 | ✅ outubro |
+| 30/09 às 23h50 | ✅ setembro |
+
+### Uma regra, um lugar só
+O painel também precisa expirar os vencidos antes de contar. Em vez de copiar o `UPDATE`, ele chama o mesmo `OrcamentosEndpoints.ExpirarVencidos`, que passou de `private` para `internal`, visível dentro do projeto da API. Com cópias, um dia alguém corrigiria uma e esqueceria a outra.
+
+### O Início se atualiza sozinho
+A chave do painel é `['orcamentos', 'painel', ano, mes]`: fica "dentro" de `['orcamentos']`, como o PDF (passo 22). Aprovar, criar ou excluir um orçamento invalida `['orcamentos']`, e o Início mostra os números novos ao voltar. O teste aprovou um orçamento e conferiu: o faturamento foi de R$ 400 para R$ 800.
+
+### Lint: `new Date()` durante o desenho da tela
+O oxlint avisou: *"Cannot call impure function during render"*. O `new Date()` devolve um valor diferente a cada chamada, e o React pode desenhar a tela várias vezes. A data agora é lida **uma vez**, quando a tela abre (`useState(() => new Date()...)`).
+
+### Testes feitos
+| Teste | Resultado |
+|---|---|
+| API: tudo zero sem orçamentos; 4 bordas de fuso; em aberto (o vencido expira e não conta); recusado fora do faturamento; mês padrão = atual; mês 13 → 400; outra oficina vê zero; sem login → 401 | ✅ 10 de 10 |
+| Início no navegador: mês atual, cards, mês anterior, seta do futuro desabilitada, aprovar atualiza o Início, 360 px | ✅ 9 de 9 |

@@ -4,6 +4,7 @@ using Orcamentos.Api.Features.Auth;
 using Orcamentos.Api.Features.Catalogo;
 using Orcamentos.Api.Features.Clientes;
 using Orcamentos.Api.Features.Orcamentos;
+using Orcamentos.Api.Features.Painel;
 using Orcamentos.Infrastructure;
 using Orcamentos.Infrastructure.Dados;
 using System.Text.Json.Serialization;
@@ -91,6 +92,7 @@ app.MapCategoriasEndpoints();
 app.MapServicosEndpoints();
 app.MapClientesEndpoints();
 app.MapOrcamentosEndpoints();
+app.MapPainelEndpoints();
 
 await app.RunAsync();
 return 0;

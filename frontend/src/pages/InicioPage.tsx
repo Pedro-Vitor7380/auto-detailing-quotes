@@ -1,7 +1,39 @@
-import { Plus } from 'lucide-react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router'
+import { apiPainel, chavesPainel } from '../api/painel'
+import { AlertaDeErro } from '../components/formulario'
+import { formatarMoeda } from '../lib/formatacao'
+
+const nomeDoMes = (ano: number, mes: number) =>
+  new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
 export function InicioPage() {
+  // Lê a data UMA vez, quando a tela abre: new Date() muda a cada chamada, e a tela não deve mudar sozinha.
+  const [mesAtual] = useState(() => {
+    const hoje = new Date()
+    return { ano: hoje.getFullYear(), mes: hoje.getMonth() + 1 }
+  })
+  const [{ ano, mes }, setPeriodo] = useState(mesAtual)
+  const ehMesAtual = ano === mesAtual.ano && mes === mesAtual.mes
+
+  const painel = useQuery({
+    queryKey: chavesPainel.mes(ano, mes),
+    queryFn: () => apiPainel.obter(ano, mes),
+    placeholderData: keepPreviousData, // ao trocar de mês, os números antigos ficam até os novos chegarem
+  })
+
+  // new Date(ano, mes - 1 + n, 1) resolve a virada de ano sozinho (mês 0 = dezembro do ano anterior).
+  function mudarMes(n: number) {
+    const d = new Date(ano, mes - 1 + n, 1)
+    setPeriodo({ ano: d.getFullYear(), mes: d.getMonth() + 1 })
+  }
+
+  const valor = (texto: string | undefined) =>
+    painel.data ? texto : <span className="text-slate-300">—</span>
+  const atualizando = painel.isPlaceholderData ? 'opacity-60' : ''
+
   return (
     <section>
       <h1 className="text-2xl font-bold">Início</h1>
@@ -17,12 +49,42 @@ export function InicioPage() {
       </Link>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {['Orçamentos em aberto', 'Aprovados no mês', 'Faturamento previsto'].map((titulo) => (
-          <div key={titulo} className="rounded-xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-500">{titulo}</p>
-            <p className="mt-1 text-2xl font-bold text-slate-300">—</p>
+        {/* Em aberto não depende do mês: é o que está pendente agora */}
+        <Link to="/orcamentos" className="rounded-xl border border-slate-200 bg-white p-5 hover:border-slate-300">
+          <p className="text-sm text-slate-500">Orçamentos em aberto</p>
+          <p className="mt-1 text-2xl font-bold">{valor(String(painel.data?.emAberto))}</p>
+          {painel.data && painel.data.valorEmAberto > 0 && (
+            <p className="mt-1 text-sm text-slate-500">{formatarMoeda(painel.data.valorEmAberto)} aguardando o cliente</p>
+          )}
+        </Link>
+
+        {/* Os dois do mês ficam juntos, com o seletor de mês, para não haver dúvida sobre o período */}
+        <div className={`rounded-xl border border-slate-200 bg-white p-5 transition-opacity sm:col-span-1 lg:col-span-2 ${atualizando}`}>
+          <div className="-mt-2 -mr-2 flex items-center justify-between">
+            <p className="text-sm font-medium text-slate-700 first-letter:uppercase" aria-live="polite">{nomeDoMes(ano, mes)}</p>
+            <div className="flex">
+              <button type="button" onClick={() => mudarMes(-1)} aria-label="Mês anterior" className="flex size-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100">
+                <ChevronLeft className="size-5" aria-hidden />
+              </button>
+              <button type="button" onClick={() => mudarMes(1)} disabled={ehMesAtual} aria-label="Próximo mês" className="flex size-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-30">
+                <ChevronRight className="size-5" aria-hidden />
+              </button>
+            </div>
           </div>
-        ))}
+          <div className="mt-2 grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-slate-500">Aprovados no mês</p>
+              <p className="mt-1 text-2xl font-bold">{valor(String(painel.data?.aprovadosNoMes))}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500">Faturamento previsto</p>
+              <p className="mt-1 text-2xl font-bold text-marca-700">{valor(painel.data && formatarMoeda(painel.data.faturamentoPrevisto))}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="mt-3">
+        <AlertaDeErro erro={painel.error} />
       </div>
 
       {/* Para conferir se o celular já está com a versão mais nova (o app instalado se atualiza sozinho). */}

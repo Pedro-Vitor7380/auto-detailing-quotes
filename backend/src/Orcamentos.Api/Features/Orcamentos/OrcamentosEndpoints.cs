@@ -278,8 +278,9 @@ public static partial class OrcamentosEndpoints
     /// <summary>
     /// A mesma regra de Orcamento.ExpirarSeVencido, mas direto no banco: um único UPDATE para todos os vencidos,
     /// sem carregar cada orçamento. Roda antes de ler, então quem consulta sempre vê o status certo.
+    /// internal: o Painel também usa (uma regra, um lugar só).
     /// </summary>
-    private static Task ExpirarVencidos(AppDbContext db, Relogio relogio, CancellationToken ct)
+    internal static Task ExpirarVencidos(AppDbContext db, Relogio relogio, CancellationToken ct)
     {
         var hoje = relogio.Hoje;
         return db.Orcamentos
