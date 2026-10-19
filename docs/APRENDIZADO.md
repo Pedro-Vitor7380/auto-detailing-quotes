@@ -1291,3 +1291,68 @@ Nossos ids nascem no C# (`Guid.CreateVersion7()`). Quando um veículo novo é ad
 | **Oficina B não vê, não busca, não altera e não exclui nada de A** | ✅ |
 | **B pode cadastrar a mesma placa** (outra oficina) | ✅ 201 |
 | Remover veículo; excluir cliente leva os veículos junto | ✅ a placa fica livre de novo |
+
+## Passo 17 — Telas de clientes e veículos
+
+### O que foi feito
+| Tela | Rota | O que faz |
+|---|---|---|
+| Lista | `/clientes` | Uma caixa de busca para nome, placa ou WhatsApp, mostrando as placas de cada cliente |
+| Novo cliente | `/clientes/novo` | Cliente **e** primeiro veículo numa tela só (no pátio, os dois chegam juntos) |
+| Cliente | `/clientes/:id` | Botão **WhatsApp**, dados, veículos (adicionar, editar, remover) e excluir cliente |
+
+### Busca no servidor com "debounce"
+Os serviços são filtrados no celular (passo 14), mas a busca de clientes vai à API (passo 16). Se cada letra digitada chamasse a API, "joão" seriam 4 chamadas. O hook **`useValorAtrasado`** espera a pessoa **parar de digitar por 300 ms** e só então libera o valor. Essa técnica se chama *debounce*.
+```ts
+const termo = useValorAtrasado(busca.trim())   // muda só 300 ms depois da última tecla
+useQuery({ queryKey: ['clientes', 'busca', termo], ... })
+```
+O `useEffect` devolve uma função de **limpeza** (`clearTimeout`). Se outra tecla chega antes dos 300 ms, o React cancela o temporizador anterior.
+
+Com **`placeholderData: keepPreviousData`**, enquanto a busca nova não chega, a lista anterior continua na tela, um pouco transparente. Assim, ela não "pisca" para "Carregando..." a cada letra.
+
+### O link do WhatsApp (`wa.me`)
+`https://wa.me/5511999998888` é o link oficial do WhatsApp: no celular, ele abre o app direto na conversa com aquele número. É por isso que o WhatsApp é guardado só com números e com o 55 (passo 16). Na semana 4, o mesmo link vai levar o orçamento ao cliente.
+
+### Atualizar o cache sem buscar de novo (`setQueryData`)
+As operações de veículo já **devolvem o cliente atualizado**. Em vez de pedir à API "me mande o cliente de novo", o app coloca a resposta direto no cache:
+```ts
+queryClient.setQueryData(['clientes', id], clienteAtualizado)
+```
+A tela se atualiza na hora, sem uma segunda chamada. Isso faz diferença com a API "acordando". As **listas de busca** continuam sendo invalidadas (`refetchType: 'all'`, a lição do passo 14), porque o nome ou as placas podem ter mudado.
+
+### Formulários: `isDirty` e `reset`
+- **`isDirty`** (React Hook Form) indica se algo foi alterado desde que o formulário abriu. O botão "Salvar dados" só fica habilitado quando há o que salvar.
+- **`reset(novosValores)`**, depois de salvar, torna os valores salvos o novo "ponto de partida", e o botão volta a ficar desabilitado.
+- **Primeira versão (descartada):** o formulário era **recriado** a cada mudança no cliente (`key={dataUpdatedAt}`). Isso apagaria uma edição de nome ainda não salva caso a pessoa adicionasse um veículo no meio. O `reset` resolve sem esse efeito colateral.
+
+### Validar dois campos "juntos ou nenhum" (`superRefine`)
+No cadastro de cliente novo, o veículo é **opcional**, mas, se a pessoa começar a preencher a placa, o modelo passa a ser obrigatório, e vice-versa. O `superRefine` do Zod só roda as regras do veículo (o mesmo `esquemaDoVeiculo` da tela do cliente) quando um dos dois campos está preenchido, e coloca cada erro embaixo do campo certo.
+
+### Acessibilidade: contraste do botão verde
+O botão do WhatsApp começou em `green-600` com texto branco: contraste de **3,3:1**, abaixo do mínimo de 4,5:1 (a mesma regra do dourado, no passo 10). Ficou em **`green-700`, com 5,0:1**.
+
+### Placa como na placa real
+O banco guarda `ABC1234`, mas a tela mostra **`ABC-1234`** para a placa antiga e **`ABC1D23`** para a Mercosul, como aparecem no carro (`formatarPlaca`). As placas usam fonte monoespaçada (`font-mono`), em que cada caractere tem a mesma largura, o que facilita conferir letra por letra.
+
+### Testes feitos (Playwright, no Edge, com 360 px e 1280 px)
+**22 verificações, todas certas na primeira execução:**
+
+| Caso | Resultado |
+|---|---|
+| Lista vazia | ✅ "Nenhum cliente cadastrado ainda." |
+| Enviar vazio: só nome e WhatsApp são exigidos (veículo opcional) | ✅ |
+| WhatsApp sem DDD + placa inválida + placa sem modelo | ✅ 3 erros, embaixo dos campos certos |
+| Salvar abre a tela do cliente; botão aponta para `wa.me/5511999998888` | ✅ |
+| Placa e WhatsApp aparecem formatados | ✅ "ABC1D23", "XYZ-1234", "(11) 99999-8888" |
+| Adicionar e editar veículo | ✅ |
+| Cliente sem veículo já abre com o formulário de veículo | ✅ |
+| Placa de outro cliente | ✅ "A placa ABC1D23 já está cadastrada para João da Silva." |
+| "Salvar dados" desabilitado sem alteração; salvar atualiza o título e mostra "Salvo" | ✅ |
+| A lista mostra o nome alterado (cache invalidado) | ✅ |
+| Busca "joao", "xyz-12", "3333" e sem resultado | ✅ |
+| Remover veículo; excluir cliente volta para a lista | ✅ |
+| Sem rolagem horizontal em 360 px (lista e detalhe) | ✅ |
+
+### Verificação em produção, antes da migration
+Uma consulta **só de leitura** no Neon (`pg_available_extensions`) confirmou que ele oferece a extensão `unaccent` (versão 1.1), ainda não instalada. A migration vai instalá-la.
