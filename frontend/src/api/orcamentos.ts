@@ -99,4 +99,6 @@ export const chavesOrcamentos = {
   todos: ['orcamentos'] as const,
   lista: (filtros: object) => ['orcamentos', 'lista', filtros] as const,
   orcamento: (id: string) => ['orcamentos', id] as const,
+  // Fica "dentro" de ['orcamentos']: salvar qualquer orçamento invalida e refaz o PDF.
+  pdf: (id: string) => ['orcamentos', id, 'pdf'] as const,
 }

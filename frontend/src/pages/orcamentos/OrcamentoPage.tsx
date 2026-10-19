@@ -6,6 +6,7 @@ import { apiOrcamentos, chavesOrcamentos, type Orcamento } from '../../api/orcam
 import { AlertaDeErro, Carregando, classeDoBotaoSecundario } from '../../components/formulario'
 import { SeloDeStatus } from '../../components/SeloDeStatus'
 import { formatarData } from '../../lib/formatacao'
+import { EnviarPeloWhatsApp } from './EnviarPeloWhatsApp'
 import { FormularioDoOrcamento, ResumoDoOrcamento } from './FormularioDoOrcamento'
 
 /** /orcamentos/novo (sem id) ou /orcamentos/:id. */
@@ -93,7 +94,13 @@ function Detalhe({ orcamento: o, aoMudar }: { orcamento: Orcamento; aoMudar: (o:
       const noComputador = window.matchMedia('(pointer: fine)').matches
       const aba = noComputador ? window.open('', '_blank') : null
       try {
-        const url = URL.createObjectURL(await apiOrcamentos.pdf(o.id))
+        // fetchQuery: usa o PDF que o botão do WhatsApp já preparou (cache); só baixa se ainda não tiver.
+        const arquivo = await queryClient.fetchQuery({
+          queryKey: chavesOrcamentos.pdf(o.id),
+          queryFn: () => apiOrcamentos.pdf(o.id),
+          staleTime: Infinity,
+        })
+        const url = URL.createObjectURL(arquivo)
         if (aba) aba.location.href = url
         else {
           const link = Object.assign(document.createElement('a'), { href: url, download: `${o.numero}.pdf` })
@@ -122,6 +129,9 @@ function Detalhe({ orcamento: o, aoMudar }: { orcamento: Orcamento; aoMudar: (o:
         {o.aprovadoEm && ` · aprovado em ${formatarData(o.aprovadoEm)}`}
         {o.recusadoEm && ` · recusado em ${formatarData(o.recusadoEm)}`}
       </p>
+
+      {/* A ação principal, grande e no alto: é o que se faz no pátio depois de montar o orçamento */}
+      <EnviarPeloWhatsApp orcamento={o} bloqueado={bloqueado} aoMudar={aoMudar} />
 
       {/* Ações de status: rolam na horizontal no celular, em vez de quebrar em várias linhas */}
       <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -161,7 +171,7 @@ function Detalhe({ orcamento: o, aoMudar }: { orcamento: Orcamento; aoMudar: (o:
           </button>
         )}
       </div>
-      {temAlteracoes && <p className="mt-1 text-sm text-amber-800">Salve as alterações para gerar o PDF ou mudar o status.</p>}
+      {temAlteracoes && <p className="mt-1 text-sm text-amber-800">Salve as alterações para enviar, gerar o PDF ou mudar o status.</p>}
       <div className="mt-2">
         <AlertaDeErro erro={acao.error ?? pdf.error} />
       </div>
