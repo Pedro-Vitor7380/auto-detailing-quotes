@@ -106,3 +106,27 @@ Content-Type: application/json
 ### Exclui o cliente de teste (e os veículos dele)
 DELETE {{baseUrl}}/api/clientes/{{cliente.response.body.id}}
 Authorization: Bearer {{login.response.body.token}}
+
+# ===== Orçamentos (rode o login e "Cria um cliente" antes) =====
+
+### Cria um orçamento com um item avulso e 10% de desconto
+# @name orcamento
+POST {{baseUrl}}/api/orcamentos
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "clienteId": "{{cliente.response.body.id}}",
+  "veiculoId": "{{cliente.response.body.$.veiculos[0].id}}",
+  "itens": [{ "descricao": "Lavagem de teste", "quantidade": 1, "valorUnitario": 150, "tempoEstimadoMin": 120 }],
+  "descontoTipo": "Percentual",
+  "descontoValor": 10
+}
+
+### Lista os orçamentos (experimente ?status=Rascunho ou ?busca=ORC-2026-0001)
+GET {{baseUrl}}/api/orcamentos
+Authorization: Bearer {{login.response.body.token}}
+
+### Aprova o orçamento criado acima
+POST {{baseUrl}}/api/orcamentos/{{orcamento.response.body.id}}/aprovar
+Authorization: Bearer {{login.response.body.token}}

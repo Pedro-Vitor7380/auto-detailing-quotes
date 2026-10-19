@@ -133,6 +133,94 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                     b.ToTable("oficinas", (string)null);
                 });
 
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.Orcamento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Ano")
+                        .HasColumnType("integer")
+                        .HasColumnName("ano");
+
+                    b.Property<DateTimeOffset?>("AprovadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("aprovado_em");
+
+                    b.Property<Guid>("ClienteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cliente_id");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<string>("DescontoTipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("desconto_tipo");
+
+                    b.Property<decimal>("DescontoValor")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("desconto_valor");
+
+                    b.Property<DateTimeOffset?>("EnviadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("enviado_em");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("observacoes");
+
+                    b.Property<Guid>("OficinaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("oficina_id");
+
+                    b.Property<DateTimeOffset?>("RecusadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recusado_em");
+
+                    b.Property<int>("Sequencial")
+                        .HasColumnType("integer")
+                        .HasColumnName("sequencial");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<DateOnly>("Validade")
+                        .HasColumnType("date")
+                        .HasColumnName("validade");
+
+                    b.Property<Guid>("VeiculoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("veiculo_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_orcamentos");
+
+                    b.HasIndex("ClienteId")
+                        .HasDatabaseName("ix_orcamentos_cliente_id");
+
+                    b.HasIndex("VeiculoId")
+                        .HasDatabaseName("ix_orcamentos_veiculo_id");
+
+                    b.HasIndex("OficinaId", "Status")
+                        .HasDatabaseName("ix_orcamentos_oficina_id_status");
+
+                    b.HasIndex("OficinaId", "Ano", "Sequencial")
+                        .IsUnique()
+                        .HasDatabaseName("ix_orcamentos_oficina_id_ano_sequencial");
+
+                    b.ToTable("orcamentos", (string)null);
+                });
+
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Servico", b =>
                 {
                     b.Property<Guid>("Id")
@@ -285,6 +373,26 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                     b.ToTable("veiculos", (string)null);
                 });
 
+            modelBuilder.Entity("Orcamentos.Infrastructure.Dados.ContadorDeOrcamentos", b =>
+                {
+                    b.Property<Guid>("OficinaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("oficina_id");
+
+                    b.Property<int>("Ano")
+                        .HasColumnType("integer")
+                        .HasColumnName("ano");
+
+                    b.Property<int>("Ultimo")
+                        .HasColumnType("integer")
+                        .HasColumnName("ultimo");
+
+                    b.HasKey("OficinaId", "Ano")
+                        .HasName("pk_contadores_de_orcamentos");
+
+                    b.ToTable("contadores_de_orcamentos", (string)null);
+                });
+
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Categoria", b =>
                 {
                     b.HasOne("Orcamentos.Domain.Entidades.Oficina", null)
@@ -303,6 +411,101 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_clientes_oficinas_oficina_id");
+                });
+
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.Orcamento", b =>
+                {
+                    b.HasOne("Orcamentos.Domain.Entidades.Cliente", null)
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_orcamentos_clientes_cliente_id");
+
+                    b.HasOne("Orcamentos.Domain.Entidades.Oficina", null)
+                        .WithMany()
+                        .HasForeignKey("OficinaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_orcamentos_oficinas_oficina_id");
+
+                    b.HasOne("Orcamentos.Domain.Entidades.Veiculo", null)
+                        .WithMany()
+                        .HasForeignKey("VeiculoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_orcamentos_veiculos_veiculo_id");
+
+                    b.OwnsMany("Orcamentos.Domain.Entidades.ItemOrcamento", "Itens", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
+
+                            b1.Property<DateTimeOffset>("CriadoEm")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("criado_em");
+
+                            b1.Property<string>("Descricao")
+                                .IsRequired()
+                                .HasMaxLength(150)
+                                .HasColumnType("character varying(150)")
+                                .HasColumnName("descricao");
+
+                            b1.Property<string>("ObservacaoEstado")
+                                .HasMaxLength(300)
+                                .HasColumnType("character varying(300)")
+                                .HasColumnName("observacao_estado");
+
+                            b1.Property<Guid>("OrcamentoId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("orcamento_id");
+
+                            b1.Property<decimal?>("PrecoCatalogo")
+                                .HasPrecision(10, 2)
+                                .HasColumnType("numeric(10,2)")
+                                .HasColumnName("preco_catalogo");
+
+                            b1.Property<int>("Quantidade")
+                                .HasColumnType("integer")
+                                .HasColumnName("quantidade");
+
+                            b1.Property<Guid?>("ServicoId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("servico_id");
+
+                            b1.Property<int>("TempoEstimadoMin")
+                                .HasColumnType("integer")
+                                .HasColumnName("tempo_estimado_min");
+
+                            b1.Property<decimal>("ValorUnitario")
+                                .HasPrecision(10, 2)
+                                .HasColumnType("numeric(10,2)")
+                                .HasColumnName("valor_unitario");
+
+                            b1.HasKey("Id")
+                                .HasName("pk_itens_orcamento");
+
+                            b1.HasIndex("OrcamentoId")
+                                .HasDatabaseName("ix_itens_orcamento_orcamento_id");
+
+                            b1.HasIndex("ServicoId")
+                                .HasDatabaseName("ix_itens_orcamento_servico_id");
+
+                            b1.ToTable("itens_orcamento", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("OrcamentoId")
+                                .HasConstraintName("fk_itens_orcamento_orcamentos_orcamento_id");
+
+                            b1.HasOne("Orcamentos.Domain.Entidades.Servico", null)
+                                .WithMany()
+                                .HasForeignKey("ServicoId")
+                                .OnDelete(DeleteBehavior.Restrict)
+                                .HasConstraintName("fk_itens_orcamento_servicos_servico_id");
+                        });
+
+                    b.Navigation("Itens");
                 });
 
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Servico", b =>
@@ -347,6 +550,16 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_veiculos_oficinas_oficina_id");
+                });
+
+            modelBuilder.Entity("Orcamentos.Infrastructure.Dados.ContadorDeOrcamentos", b =>
+                {
+                    b.HasOne("Orcamentos.Domain.Entidades.Oficina", null)
+                        .WithMany()
+                        .HasForeignKey("OficinaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_contadores_de_orcamentos_oficinas_oficina_id");
                 });
 
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Cliente", b =>

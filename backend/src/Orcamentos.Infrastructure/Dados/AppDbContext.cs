@@ -14,6 +14,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IOficinaAtual 
     public DbSet<Servico> Servicos => Set<Servico>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
     public DbSet<Veiculo> Veiculos => Set<Veiculo>();
+    public DbSet<Orcamento> Orcamentos => Set<Orcamento>();
+    public DbSet<ContadorDeOrcamentos> ContadoresDeOrcamentos => Set<ContadorDeOrcamentos>();
 
     // Lida de novo a cada consulta: o EF trata esta propriedade como um parâmetro, não como um valor fixo.
     private Guid? OficinaIdAtual => oficinaAtual.Id;
@@ -26,6 +28,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IOficinaAtual 
         // Aplica todas as classes IEntityTypeConfiguration da pasta Configuracoes.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
+        modelBuilder.Entity<ContadorDeOrcamentos>(contador =>
+        {
+            contador.HasKey(c => new { c.OficinaId, c.Ano }); // uma linha por oficina e ano
+            contador.HasOne<Oficina>().WithMany().HasForeignKey(c => c.OficinaId).OnDelete(DeleteBehavior.Restrict);
+        });
+
         // Filtro global: TODA consulta nestas tabelas ganha "WHERE oficina_id = <oficina do token>",
         // sem precisar lembrar de escrever isso em cada endpoint. Sem usuário logado, não vê nada.
         // Toda entidade de negócio nova (Cliente, Orçamento...) precisa de uma linha aqui.
@@ -34,5 +42,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IOficinaAtual 
         modelBuilder.Entity<Servico>().HasQueryFilter(s => s.OficinaId == OficinaIdAtual);
         modelBuilder.Entity<Cliente>().HasQueryFilter(c => c.OficinaId == OficinaIdAtual);
         modelBuilder.Entity<Veiculo>().HasQueryFilter(v => v.OficinaId == OficinaIdAtual);
+        modelBuilder.Entity<Orcamento>().HasQueryFilter(o => o.OficinaId == OficinaIdAtual); // os itens (owned) vêm junto
     }
 }

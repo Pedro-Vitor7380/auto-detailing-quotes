@@ -3,8 +3,10 @@ using Orcamentos.Api.Comum;
 using Orcamentos.Api.Features.Auth;
 using Orcamentos.Api.Features.Catalogo;
 using Orcamentos.Api.Features.Clientes;
+using Orcamentos.Api.Features.Orcamentos;
 using Orcamentos.Infrastructure;
 using Orcamentos.Infrastructure.Dados;
+using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,6 +34,13 @@ builder.Services.AddAutenticacao();
 // Erros no formato ProblemDetails; regras de negócio violadas viram 400 com a mensagem da regra.
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<TratadorDeErros>();
+
+// Enums no JSON como texto ("Rascunho"), e não como número (0): o app e quem lê a API entendem na hora.
+builder.Services.ConfigureHttpJsonOptions(json => json.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+// Relógio: "hoje" no fuso da oficina. TimeProvider.System é o relógio real do .NET.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<Relogio>();
 
 // CORS: quais sites (origens) o NAVEGADOR deve deixar chamar esta API.
 // Em produção, a origem do front-end (ex.: https://app.vercel.app) vem da configuração.
@@ -80,6 +89,7 @@ app.MapAuthEndpoints();
 app.MapCategoriasEndpoints();
 app.MapServicosEndpoints();
 app.MapClientesEndpoints();
+app.MapOrcamentosEndpoints();
 
 await app.RunAsync();
 return 0;

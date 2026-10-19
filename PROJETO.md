@@ -102,7 +102,11 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
 - O valor ajustado **pode sair da faixa**: a faixa é uma referência, não uma trava.
 - Mudar o preço no catálogo **não altera** orçamentos já criados.
 - O desconto é aplicado **sobre o total** dos itens.
-- Cada orçamento tem um **número sequencial por oficina** (ex.: `ORC-2026-0001`).
+- Cada orçamento tem um **número sequencial por oficina e por ano** (ex.: `ORC-2026-0001`; volta a 0001 em janeiro).
+- **Aprovar ou recusar** vale a partir de **Rascunho ou Enviado** (o cliente pode aprovar pela conversa antes do envio formal).
+- **Editar** só em Rascunho ou Enviado; **excluir** só Rascunho. Os demais ficam no histórico e podem ser **duplicados**.
+- Rascunho **não expira** (ninguém o recebeu); só Enviado vira Expirado.
+- **Cliente ou veículo com orçamentos não pode ser excluído** (o histórico apontaria para o nada).
 - A validade padrão é **7 dias** a partir da criação.
 - Orçamentos **Enviados** viram **Expirados** quando passa a validade.
 - Orçamento **Aprovado** não pode ser editado, apenas duplicado.
