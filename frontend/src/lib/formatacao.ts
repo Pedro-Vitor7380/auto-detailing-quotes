@@ -44,3 +44,17 @@ export function formatarDuracao(minutos: number): string {
 export function normalizarParaBusca(texto: string): string {
   return texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
 }
+
+/** "5511999998888" → "(11) 99999-8888"; "552133334444" → "(21) 3333-4444" */
+export function formatarWhatsApp(numero: string): string {
+  const local = numero.startsWith('55') ? numero.slice(2) : numero
+  const ddd = local.slice(0, 2)
+  const resto = local.slice(2)
+  const meio = resto.length - 4
+  return `(${ddd}) ${resto.slice(0, meio)}-${resto.slice(meio)}`
+}
+
+/** Placa antiga com hífen ("ABC-1234"), Mercosul sem ("ABC1D23"), como aparecem nas placas reais. */
+export function formatarPlaca(placa: string): string {
+  return /^[A-Z]{3}\d{4}$/.test(placa) ? `${placa.slice(0, 3)}-${placa.slice(3)}` : placa
+}
