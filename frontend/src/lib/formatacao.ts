@@ -58,3 +58,22 @@ export function formatarWhatsApp(numero: string): string {
 export function formatarPlaca(placa: string): string {
   return /^[A-Z]{3}\d{4}$/.test(placa) ? `${placa.slice(0, 3)}-${placa.slice(3)}` : placa
 }
+
+/** "2026-10-26" → "26/10/2026". Lê o texto direto: new Date("2026-10-26") seria meia-noite em UTC, e no Brasil viraria o dia 25. */
+export function formatarData(iso: string): string {
+  const [ano, mes, dia] = iso.slice(0, 10).split('-')
+  return `${dia}/${mes}/${ano}`
+}
+
+/** Data de hoje no aparelho, no formato "2026-10-19" (o mesmo do campo <input type="date">). */
+export function hojeIso(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Soma dias a uma data "2026-10-19". Usa meio-dia para não cair em problemas de horário de verão. */
+export function somarDias(iso: string, dias: number): string {
+  const d = new Date(`${iso}T12:00:00`)
+  d.setDate(d.getDate() + dias)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
