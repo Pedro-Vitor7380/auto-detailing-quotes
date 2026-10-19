@@ -9,8 +9,8 @@ public class ServicoTests
     private static readonly Guid CategoriaId = Guid.NewGuid();
 
     private static Servico Criar(string nome = "Lavagem Detalhada", string? descricao = null,
-        decimal minimo = 120m, decimal maximo = 180m, int tempo = 120) =>
-        new(OficinaId, CategoriaId, nome, descricao, minimo, maximo, tempo);
+        decimal minimo = 120m, decimal maximo = 180m) =>
+        new(OficinaId, CategoriaId, nome, descricao, minimo, maximo);
 
     [Fact]
     public void Criar_ComDadosValidos_FicaAtivo()
@@ -47,14 +47,6 @@ public class ServicoTests
         Assert.Throws<RegraDeNegocioException>(() => Criar(minimo: minimo, maximo: maximo));
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-30)]
-    public void Criar_ComTempoInvalido_LancaRegraDeNegocio(int tempo)
-    {
-        Assert.Throws<RegraDeNegocioException>(() => Criar(tempo: tempo));
-    }
-
     [Fact]
     public void Criar_SemNome_LancaRegraDeNegocio()
     {
@@ -65,7 +57,7 @@ public class ServicoTests
     public void Criar_SemCategoria_LancaRegraDeNegocio()
     {
         Assert.Throws<RegraDeNegocioException>(() =>
-            new Servico(OficinaId, Guid.Empty, "Lavagem", null, 100m, 100m, 60));
+            new Servico(OficinaId, Guid.Empty, "Lavagem", null, 100m, 100m));
     }
 
     [Fact]
@@ -74,7 +66,7 @@ public class ServicoTests
         var servico = Criar();
 
         Assert.Throws<RegraDeNegocioException>(() =>
-            servico.Atualizar(CategoriaId, "Outro nome", null, 300m, 100m, 60));
+            servico.Atualizar(CategoriaId, "Outro nome", null, 300m, 100m));
 
         // Valida tudo antes de alterar: um erro não deixa o objeto "pela metade".
         Assert.Equal("Lavagem Detalhada", servico.Nome);

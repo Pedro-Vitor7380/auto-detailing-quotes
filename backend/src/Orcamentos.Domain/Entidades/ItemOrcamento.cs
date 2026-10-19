@@ -24,8 +24,6 @@ public class ItemOrcamento : Entidade
     /// <summary>Valor cobrado por unidade, já ajustado pelo estado do carro.</summary>
     public decimal ValorUnitario { get; private set; }
 
-    public int TempoEstimadoMin { get; private set; }
-
     /// <summary>Por que o valor foi ajustado (ex.: "interior com muitos pelos de animal").</summary>
     public string? ObservacaoEstado { get; private set; }
 
@@ -35,17 +33,17 @@ public class ItemOrcamento : Entidade
     public decimal? Ajuste => PrecoCatalogo is null ? null : ValorUnitario - PrecoCatalogo;
 
     internal ItemOrcamento(Guid? servicoId, decimal? precoCatalogo, string descricao, int quantidade,
-        decimal valorUnitario, int tempoEstimadoMin, string? observacaoEstado)
+        decimal valorUnitario, string? observacaoEstado)
     {
         ServicoId = servicoId;
         PrecoCatalogo = precoCatalogo;
-        Atualizar(descricao, quantidade, valorUnitario, tempoEstimadoMin, observacaoEstado);
+        Atualizar(descricao, quantidade, valorUnitario, observacaoEstado);
     }
 
     // Construtor vazio exigido pelo Entity Framework para recriar o objeto a partir do banco.
     private ItemOrcamento() { }
 
-    internal void Atualizar(string descricao, int quantidade, decimal valorUnitario, int tempoEstimadoMin, string? observacaoEstado)
+    internal void Atualizar(string descricao, int quantidade, decimal valorUnitario, string? observacaoEstado)
     {
         if (string.IsNullOrWhiteSpace(descricao))
             throw new RegraDeNegocioException("A descrição do item é obrigatória.");
@@ -60,9 +58,6 @@ public class ItemOrcamento : Entidade
         if (valorUnitario < 0)
             throw new RegraDeNegocioException("O valor do item não pode ser negativo.");
 
-        if (tempoEstimadoMin < 0)
-            throw new RegraDeNegocioException("O tempo do item não pode ser negativo.");
-
         observacaoEstado = string.IsNullOrWhiteSpace(observacaoEstado) ? null : observacaoEstado.Trim();
         if (observacaoEstado?.Length > ObservacaoTamanhoMaximo)
             throw new RegraDeNegocioException($"A observação pode ter no máximo {ObservacaoTamanhoMaximo} caracteres.");
@@ -70,7 +65,6 @@ public class ItemOrcamento : Entidade
         Descricao = descricao;
         Quantidade = quantidade;
         ValorUnitario = Dinheiro.Arredondar(valorUnitario);
-        TempoEstimadoMin = tempoEstimadoMin;
         ObservacaoEstado = observacaoEstado;
     }
 }

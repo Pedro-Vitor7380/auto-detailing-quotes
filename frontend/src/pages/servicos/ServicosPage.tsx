@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { apiCatalogo, chavesCatalogo, type Servico } from '../../api/catalogo'
 import { AlertaDeErro, Carregando, classeDoBotaoPrincipal, classeDoCampo } from '../../components/formulario'
-import { formatarDuracao, formatarFaixa, normalizarParaBusca } from '../../lib/formatacao'
+import { formatarFaixa, normalizarParaBusca } from '../../lib/formatacao'
 
 export function ServicosPage() {
   // useQuery: busca na API, guarda em cache e devolve o estado (carregando, erro, dados).
@@ -126,7 +126,7 @@ export function ServicosPage() {
                         <div className="min-w-0 flex-1">
                           <p className={`font-medium ${s.ativo ? '' : 'text-slate-400 line-through'}`}>{s.nome}</p>
                           <p className="text-sm text-slate-500">
-                            {formatarFaixa(s.precoMinimo, s.precoMaximo)} · {formatarDuracao(s.tempoEstimadoMin)}
+                            {formatarFaixa(s.precoMinimo, s.precoMaximo)}
                           </p>
                         </div>
                         {!s.ativo && (

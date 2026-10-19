@@ -17,7 +17,6 @@ import { formatarDecimal, lerValorEmReais } from '../../lib/formatacao'
 
 // Esquema do formulário: as MESMAS regras do Domínio (Servico.cs), conferidas antes de enviar.
 // Assim o usuário vê o erro na hora, embaixo do campo. A API continua validando: o front pode ser burlado.
-const numeroInteiro = /^\d*$/
 const esquema = z
   .object({
     nome: z.string().trim().min(1, 'Informe o nome do serviço.').max(120, 'Máximo de 120 caracteres.'),
@@ -30,8 +29,6 @@ const esquema = z
       .refine((v) => lerValorEmReais(v) !== null, 'Valor inválido. Ex.: 120,00'),
     // Vazio = preço fixo (igual ao mínimo).
     precoMaximo: z.string().refine((v) => v.trim() === '' || lerValorEmReais(v) !== null, 'Valor inválido. Ex.: 180,00'),
-    horas: z.string().regex(numeroInteiro, 'Só números.'),
-    minutos: z.string().regex(numeroInteiro, 'Só números.'),
   })
   // Regras que envolvem mais de um campo ficam no objeto inteiro; "path" diz embaixo de qual campo o erro aparece.
   .refine(
@@ -42,10 +39,6 @@ const esquema = z
     },
     { message: 'O máximo não pode ser menor que o mínimo.', path: ['precoMaximo'] },
   )
-  .refine((v) => Number(v.horas || 0) * 60 + Number(v.minutos || 0) > 0, {
-    message: 'Informe o tempo estimado.',
-    path: ['minutos'],
-  })
 
 type Valores = z.infer<typeof esquema>
 
@@ -57,7 +50,6 @@ function paraDadosDaApi(v: Valores): DadosDoServico {
     descricao: v.descricao || null,
     precoMinimo: minimo,
     precoMaximo: lerValorEmReais(v.precoMaximo) ?? minimo,
-    tempoEstimadoMin: Number(v.horas || 0) * 60 + Number(v.minutos || 0),
   }
 }
 
@@ -68,8 +60,6 @@ function paraValoresDoFormulario(s?: Servico): Valores {
     descricao: s?.descricao ?? '',
     precoMinimo: s ? formatarDecimal(s.precoMinimo) : '',
     precoMaximo: s ? formatarDecimal(s.precoMaximo) : '',
-    horas: s ? String(Math.floor(s.tempoEstimadoMin / 60)) : '',
-    minutos: s ? String(s.tempoEstimadoMin % 60) : '',
   }
 }
 
@@ -187,18 +177,6 @@ function Formulario({ servico, categorias }: { servico?: Servico; categorias: Ca
           </Campo>
         </div>
         <p className="mt-1 text-sm text-slate-500">No orçamento, o serviço entra pelo mínimo e você ajusta conforme o carro.</p>
-      </fieldset>
-
-      <fieldset>
-        <legend className="text-sm font-medium text-slate-700">Tempo estimado</legend>
-        <div className="mt-1 grid grid-cols-2 gap-3">
-          <Campo id="horas" rotulo="Horas" erro={errors.horas?.message}>
-            <input {...campo('horas')} inputMode="numeric" placeholder="0" className={classeDoCampo} />
-          </Campo>
-          <Campo id="minutos" rotulo="Minutos" erro={errors.minutos?.message}>
-            <input {...campo('minutos')} inputMode="numeric" placeholder="0" className={classeDoCampo} />
-          </Campo>
-        </div>
       </fieldset>
 
       <Campo id="descricao" rotulo="Descrição (opcional)" erro={errors.descricao?.message}>

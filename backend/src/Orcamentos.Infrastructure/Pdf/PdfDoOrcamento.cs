@@ -23,7 +23,6 @@ public static class PdfDoOrcamento
     private const string Dourado = "#8A6618"; // o dourado escuro: legível em papel branco
     private const string Cinza = "#64748B";
     private const string Linha = "#E2E8F0";
-    private const int MinutosPorDia = 8 * 60; // um dia de trabalho
 
     public static byte[] Gerar(DadosDoPdf d) =>
         Document.Create(documento => documento.Page(pagina =>
@@ -129,21 +128,12 @@ public static class PdfDoOrcamento
                 });
             });
 
-            // Prazo e validade
-            coluna.Item().Background("#FBF6EA").Padding(10).Column(info =>
+            // Validade. Sem prazo de entrega, de propósito: com vários carros na oficina ao mesmo tempo,
+            // a soma dos tempos dos serviços não diz quando ESTE carro fica pronto (pedido da equipe).
+            coluna.Item().Background("#FBF6EA").Padding(10).Text(t =>
             {
-                info.Spacing(3);
-                if (o.TempoEstimadoTotalMin > 0)
-                    info.Item().Text(t =>
-                    {
-                        t.Span("Prazo estimado de execução: ").SemiBold();
-                        t.Span(FormatarPrazo(o.TempoEstimadoTotalMin));
-                    });
-                info.Item().Text(t =>
-                {
-                    t.Span("Validade: ").SemiBold();
-                    t.Span($"este orçamento vale até {Data(o.Validade)}.");
-                });
+                t.Span("Validade: ").SemiBold();
+                t.Span($"este orçamento vale até {Data(o.Validade)}.");
             });
 
             if (o.Observacoes is not null)
@@ -193,18 +183,6 @@ public static class PdfDoOrcamento
     private static string Moeda(decimal valor) => valor.ToString("C", PtBr);
     private static string Data(DateOnly data) => data.ToString("dd/MM/yyyy", PtBr);
     private static string? Rotulo(string rotulo, string? valor) => valor is null ? null : $"{rotulo}: {valor}";
-
-    /// <summary>Para o cliente, "2 dias úteis" diz mais do que "960 min". Até um dia de trabalho, mostra em horas.</summary>
-    public static string FormatarPrazo(int minutos)
-    {
-        if (minutos >= MinutosPorDia)
-        {
-            var dias = (int)Math.Ceiling(minutos / (double)MinutosPorDia);
-            return dias == 1 ? "1 dia útil" : $"{dias} dias úteis";
-        }
-        var (horas, resto) = (minutos / 60, minutos % 60);
-        return horas == 0 ? $"{resto} min" : resto == 0 ? $"{horas} h" : $"{horas} h {resto:D2}";
-    }
 
     /// <summary>"5511999998888" → "(11) 99999-8888". Mesma regra do app (formatarWhatsApp).</summary>
     public static string FormatarWhatsApp(string numero)

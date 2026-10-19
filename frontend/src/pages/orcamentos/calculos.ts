@@ -12,7 +12,6 @@ export function arredondar(valor: number): number {
 export interface ItemParaCalculo {
   quantidade: number
   valorUnitario: number
-  tempoEstimadoMin: number
 }
 
 export function calcularTotais(itens: ItemParaCalculo[], descontoTipo: TipoDeDesconto, descontoValor: number) {
@@ -27,6 +26,5 @@ export function calcularTotais(itens: ItemParaCalculo[], descontoTipo: TipoDeDes
     subtotal,
     desconto,
     total: arredondar(subtotal - desconto),
-    tempoTotalMin: itens.reduce((soma, i) => soma + i.tempoEstimadoMin * i.quantidade, 0),
   }
 }

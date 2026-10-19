@@ -12,7 +12,7 @@ namespace Orcamentos.Api.Features.Orcamentos;
 /// <summary>Item enviado pelo app. Com Id = item que já existe; sem Id = item novo (do catálogo se tiver ServicoId).</summary>
 public record ItemRequest(
     Guid? Id, Guid? ServicoId, string? Descricao, int Quantidade, decimal? ValorUnitario,
-    int? TempoEstimadoMin, string? ObservacaoEstado);
+    string? ObservacaoEstado);
 
 /// <summary>O orçamento inteiro, como está na tela. O mesmo formato serve para criar e para salvar.</summary>
 public record SalvarOrcamentoRequest(
@@ -21,13 +21,13 @@ public record SalvarOrcamentoRequest(
 
 public record ItemResponse(
     Guid Id, Guid? ServicoId, string Descricao, int Quantidade, decimal? PrecoCatalogo, decimal ValorUnitario,
-    decimal? Ajuste, decimal Total, int TempoEstimadoMin, string? ObservacaoEstado);
+    decimal? Ajuste, decimal Total, string? ObservacaoEstado);
 
 public record OrcamentoResponse(
     Guid Id, string Numero, StatusDoOrcamento Status, bool PodeSerEditado,
     Guid ClienteId, string ClienteNome, string ClienteWhatsApp, Guid VeiculoId, string Placa, string Modelo,
     List<ItemResponse> Itens, decimal Subtotal, TipoDeDesconto DescontoTipo, decimal DescontoValor,
-    decimal ValorDoDesconto, decimal Total, int TempoEstimadoTotalMin, DateOnly Validade, string? Observacoes,
+    decimal ValorDoDesconto, decimal Total, DateOnly Validade, string? Observacoes,
     DateTimeOffset CriadoEm, DateTimeOffset? EnviadoEm, DateTimeOffset? AprovadoEm, DateTimeOffset? RecusadoEm);
 
 public record OrcamentoResumoResponse(
@@ -232,8 +232,7 @@ public static partial class OrcamentosEndpoints
             {
                 if (!idsExistentes.Contains(itemId))
                     return Problemas.Invalido("Um dos itens não pertence a este orçamento. Recarregue a tela.");
-                orcamento.AtualizarItem(itemId, item.Quantidade, item.ValorUnitario ?? 0, item.ObservacaoEstado,
-                    item.Descricao, item.TempoEstimadoMin);
+                orcamento.AtualizarItem(itemId, item.Quantidade, item.ValorUnitario ?? 0, item.ObservacaoEstado, item.Descricao);
             }
             else if (item.ServicoId is { } servicoId)
             {
@@ -243,8 +242,7 @@ public static partial class OrcamentosEndpoints
             }
             else
             {
-                orcamento.AdicionarAvulso(item.Descricao ?? "", item.Quantidade, item.ValorUnitario ?? 0,
-                    item.TempoEstimadoMin ?? 0, item.ObservacaoEstado);
+                orcamento.AdicionarAvulso(item.Descricao ?? "", item.Quantidade, item.ValorUnitario ?? 0, item.ObservacaoEstado);
             }
         }
 
@@ -298,11 +296,11 @@ public static partial class OrcamentosEndpoints
         // Ordem em que os itens foram adicionados (o Id não serve: a ordem de Guid no C# não é a de criação).
         var itens = o.Itens.OrderBy(i => i.CriadoEm).Select(i => new ItemResponse(
             i.Id, i.ServicoId, i.Descricao, i.Quantidade, i.PrecoCatalogo, i.ValorUnitario, i.Ajuste, i.Total,
-            i.TempoEstimadoMin, i.ObservacaoEstado)).ToList();
+            i.ObservacaoEstado)).ToList();
 
         return new OrcamentoResponse(o.Id, o.Numero, o.Status, o.PodeSerEditado,
             o.ClienteId, cliente.Nome, cliente.WhatsApp, o.VeiculoId, veiculo.Placa, veiculo.Modelo,
-            itens, o.Subtotal, o.DescontoTipo, o.DescontoValor, o.ValorDoDesconto, o.Total, o.TempoEstimadoTotalMin,
+            itens, o.Subtotal, o.DescontoTipo, o.DescontoValor, o.ValorDoDesconto, o.Total,
             o.Validade, o.Observacoes, o.CriadoEm, o.EnviadoEm, o.AprovadoEm, o.RecusadoEm);
     }
 

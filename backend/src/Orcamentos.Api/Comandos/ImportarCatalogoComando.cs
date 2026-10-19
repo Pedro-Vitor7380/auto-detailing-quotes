@@ -18,7 +18,7 @@ public static class ImportarCatalogoComando
     // O formato do arquivo. Records simples: o System.Text.Json preenche pelo nome das propriedades.
     private record Arquivo(List<CategoriaDoArquivo> Categorias);
     private record CategoriaDoArquivo(string Nome, List<ServicoDoArquivo> Servicos);
-    private record ServicoDoArquivo(string Nome, string? Descricao, decimal PrecoMinimo, decimal PrecoMaximo, int TempoEstimadoMin);
+    private record ServicoDoArquivo(string Nome, string? Descricao, decimal PrecoMinimo, decimal PrecoMaximo);
 
     private static readonly JsonSerializerOptions OpcoesJson = new(JsonSerializerDefaults.Web); // aceita "precoMinimo"
 
@@ -68,7 +68,7 @@ public static class ImportarCatalogoComando
                 foreach (var s in item.Servicos)
                 {
                     // Add devolve false se o nome já estava no conjunto: serviço existente não é alterado,
-                    // porque alguém pode ter ajustado preço ou tempo pelo app depois da primeira carga.
+                    // porque alguém pode ter ajustado o preço pelo app depois da primeira carga.
                     if (!nomesDeServicos.Add(s.Nome.Trim()))
                     {
                         servicosExistentes++;
@@ -77,7 +77,7 @@ public static class ImportarCatalogoComando
 
                     // O construtor do Domínio valida cada serviço: um valor errado no arquivo para tudo aqui.
                     db.Servicos.Add(new Servico(oficina.Id, categoria.Id, s.Nome, s.Descricao,
-                        s.PrecoMinimo, s.PrecoMaximo, s.TempoEstimadoMin));
+                        s.PrecoMinimo, s.PrecoMaximo));
                     servicosNovos++;
                 }
             }

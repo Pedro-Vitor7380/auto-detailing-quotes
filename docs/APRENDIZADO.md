@@ -1692,3 +1692,49 @@ No PC não há WhatsApp, então o teste troca `navigator.share` por uma versão 
 | Regressão: tela do orçamento (27/27) e botão PDF | ✅ |
 
 Duas falhas da primeira rodada eram do **teste**: ele olhou o botão antes de o React redesenhar, e o Edge abriu também a página de downloads, que o teste confundiu com a do WhatsApp. O teste passou a esperar o aviso aparecer e a registrar o endereço que o app manda abrir.
+
+**No celular de verdade** (teste do usuário): o PDF chegou pelo WhatsApp. ✅
+
+## Passo 23 — Tirar o tempo de execução e o prazo de entrega
+
+### O pedido
+> *"Passei essa versão beta pro pessoal da 'linha de frente' e eles não gostaram que tem tempo de execução de cada serviço e nem prazo esperado para entrega, tanto no programa quanto no PDF, pois na oficina pode ter mais de um carro em serviço, então isso pode passar uma informação errada ao cliente."*
+
+**Eles estão certos.** O "prazo" era a soma dos tempos dos serviços **daquele** carro. Mas a oficina atende vários carros ao mesmo tempo, com as mesmas pessoas: um polimento de 1 dia pode levar 3 se houver outros dois na frente. O PDF prometia ao cliente uma data que **ninguém garantiu**. Informação errada para o cliente é pior do que nenhuma informação.
+
+**Lição de produto:** o tempo estava no `PROJETO.md` desde a entrevista inicial e parecia uma boa ideia. Só o **uso real**, por quem atende o cliente, mostrou o problema. Por isso vale colocar uma versão beta nas mãos da equipe cedo: a decisão foi corrigida **antes** de existir um histórico de orçamentos com prazos errados.
+
+### Esconder ou remover?
+| Opção | Prós | Contras |
+|---|---|---|
+| Só **esconder** da tela e do PDF | Rápido; os dados ficam, caso um dia sirvam | O cadastro de serviço continuaria **pedindo** um tempo que não serve para nada; código e banco carregam um dado morto |
+| **Remover** de tudo | Código mais simples; ninguém preenche à toa | Apaga as colunas no banco (os 36 tempos eram estimativas, não dados da oficina) |
+
+**Escolha: remover.** O princípio é o *YAGNI* ("you aren't gonna need it", "você não vai precisar disso"): não manter código "para o caso de um dia". Se um dia a oficina quiser controlar agenda, isso será **outra funcionalidade**, pensada para isso: fila de carros e capacidade da equipe, e não a soma de tempos do catálogo.
+
+### O que saiu
+| Camada | Removido |
+|---|---|
+| Domínio | `Servico.TempoEstimadoMin`, `ItemOrcamento.TempoEstimadoMin`, `Orcamento.TempoEstimadoTotalMin` e a regra "tempo maior que zero" (2 testes a menos: 78 no total) |
+| Banco | Migration `RemoveTempoEstimado`: apaga as colunas `servicos.tempo_estimado_min` e `itens_orcamento.tempo_estimado_min` |
+| API | Os campos de tempo nos pedidos e respostas de serviços e orçamentos |
+| PDF | A linha "Prazo estimado de execução" (fica só a validade) |
+| App | Campos "Horas/Minutos" no cadastro de serviço; "· 2 h" nas listas e no seletor; "Prazo ~" na barra do total; "Prazo estimado" no resumo |
+| Dados | O campo `tempoEstimadoMin` do `catalogo-inicial.json` e a coluna "Tempo médio" do `catalogo-servicos.md` |
+| Documentos | `PROJETO.md`: o tempo saiu das funcionalidades e entrou em **"Fora do escopo"**, com o motivo |
+
+### Como ter certeza de que não sobrou nada
+1. **O compilador como aliado:** ao tirar a propriedade do Domínio, todo lugar que a usava parou de compilar (API, PDF, comando de importação, testes). É o lado bom de uma linguagem com tipos: ela aponta o que precisa mudar.
+2. **Busca no código** por "tempo", "prazo" e "duração": só sobraram comentários que explicam **por que** o prazo não existe.
+3. **Consulta ao banco** (`information_schema.columns`): nenhuma coluna de tempo.
+4. **A API** não devolve mais nenhum campo de tempo, nem nos serviços nem nos orçamentos.
+5. **O PDF**, lido como texto, não tem "prazo", "execução" nem "dias úteis".
+
+### Testes feitos
+| Teste | Resultado |
+|---|---|
+| Testes de unidade | ✅ 78 de 78 |
+| Catálogo no navegador: o cadastro pede só nome, categoria e preço; as listas mostram só a faixa | ✅ 19 de 19 |
+| Orçamento no navegador: barra do total e resumo sem prazo | ✅ 29 de 29 |
+| PDF: sem prazo, com validade (conferido como imagem) | ✅ |
+| Banco e API: nenhum campo de tempo | ✅ |

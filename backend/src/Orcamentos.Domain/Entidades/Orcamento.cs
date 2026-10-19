@@ -49,7 +49,6 @@ public class Orcamento : EntidadeDaOficina
     };
 
     public decimal Total => Subtotal - ValorDoDesconto;
-    public int TempoEstimadoTotalMin => _itens.Sum(i => i.TempoEstimadoMin * i.Quantidade);
     public bool PodeSerEditado => Status is StatusDoOrcamento.Rascunho or StatusDoOrcamento.Enviado;
 
     public Orcamento(Guid oficinaId, int ano, int sequencial, Guid clienteId, Guid veiculoId, DateOnly hoje)
@@ -93,25 +92,25 @@ public class Orcamento : EntidadeDaOficina
             throw new RegraDeNegocioException($"O serviço \"{servico.Nome}\" está desativado.");
 
         var item = new ItemOrcamento(servico.Id, servico.PrecoMinimo, servico.Nome, quantidade,
-            valorUnitario ?? servico.PrecoMinimo, servico.TempoEstimadoMin, observacaoEstado);
+            valorUnitario ?? servico.PrecoMinimo, observacaoEstado);
         _itens.Add(item);
         return item;
     }
 
-    public ItemOrcamento AdicionarAvulso(string descricao, int quantidade, decimal valorUnitario, int tempoEstimadoMin = 0, string? observacaoEstado = null)
+    public ItemOrcamento AdicionarAvulso(string descricao, int quantidade, decimal valorUnitario, string? observacaoEstado = null)
     {
         GarantirEditavel();
-        var item = new ItemOrcamento(null, null, descricao, quantidade, valorUnitario, tempoEstimadoMin, observacaoEstado);
+        var item = new ItemOrcamento(null, null, descricao, quantidade, valorUnitario, observacaoEstado);
         _itens.Add(item);
         return item;
     }
 
     /// <summary>
-    /// Ajusta um item já existente. O preço de catálogo guardado não muda, e a descrição e o tempo
-    /// de itens do catálogo também não (só os do avulso, que não têm de onde vir).
+    /// Ajusta um item já existente. O preço de catálogo guardado não muda, e a descrição de itens
+    /// do catálogo também não (só a do avulso, que não tem de onde vir).
     /// </summary>
     public void AtualizarItem(Guid itemId, int quantidade, decimal valorUnitario, string? observacaoEstado,
-        string? descricaoAvulso = null, int? tempoAvulsoMin = null)
+        string? descricaoAvulso = null)
     {
         GarantirEditavel();
         var item = ObterItem(itemId);
@@ -120,7 +119,6 @@ public class Orcamento : EntidadeDaOficina
             ehAvulso ? descricaoAvulso ?? item.Descricao : item.Descricao,
             quantidade,
             valorUnitario,
-            ehAvulso ? tempoAvulsoMin ?? item.TempoEstimadoMin : item.TempoEstimadoMin,
             observacaoEstado);
     }
 
@@ -213,7 +211,7 @@ public class Orcamento : EntidadeDaOficina
         var copia = new Orcamento(OficinaId, novoAno, novoSequencial, ClienteId, VeiculoId, hoje);
         foreach (var item in _itens)
             copia._itens.Add(new ItemOrcamento(item.ServicoId, item.PrecoCatalogo, item.Descricao, item.Quantidade,
-                item.ValorUnitario, item.TempoEstimadoMin, item.ObservacaoEstado));
+                item.ValorUnitario, item.ObservacaoEstado));
 
         copia.DescontoTipo = DescontoTipo;
         copia.DescontoValor = DescontoValor;

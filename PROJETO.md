@@ -53,7 +53,7 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
 
 1. **Login**: e-mail e senha de um único usuário.
 2. **Catálogo de serviços**
-   - Nome, descrição, categoria, **faixa de preço (mínimo e máximo)**, tempo estimado.
+   - Nome, descrição, categoria e **faixa de preço (mínimo e máximo)**.
    - Serviços com faixa muito larga viram **variantes** (ex.: "PPF parcial" e "PPF completo").
    - Ativar e desativar serviços.
 3. **Clientes e veículos**
@@ -67,11 +67,10 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
    - Adicionar itens avulsos, fora do catálogo.
    - **Desconto no total** (R$ ou %).
    - Validade automática de **7 dias**, que pode ser editada.
-   - Prazo estimado de execução (soma dos tempos dos serviços).
 5. **PDF do orçamento**
    - **Logo e dados da oficina.**
    - Itens, valores, desconto e total.
-   - **Prazo de execução e validade.**
+   - **Validade.**
 6. **Envio pelo WhatsApp**: botão para compartilhar o PDF ou abrir a conversa com o cliente.
 7. **Status e histórico**
    - `Rascunho → Enviado → Aprovado / Recusado / Expirado`.
@@ -91,6 +90,7 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
 
 ### Fora do escopo (decidido que não entra)
 
+- **Tempo de execução e prazo de entrega** (no app e no PDF). *(Retirado em 19/10/2026, a pedido da equipe da oficina: com vários carros em serviço ao mesmo tempo, a soma dos tempos não diz quando um carro fica pronto, e o cliente receberia um prazo que ninguém garantiu.)*
 - Funcionamento offline.
 - Fotos do veículo.
 - Pacotes ou combos.
@@ -123,7 +123,7 @@ Cliente       (Id, OficinaId, Nome, WhatsApp)
 Veiculo       (Id, OficinaId, ClienteId, Placa, Modelo)
 Categoria     (Id, OficinaId, Nome)
 Servico       (Id, OficinaId, CategoriaId, Nome, Descricao, PrecoMinimo, PrecoMaximo,
-               TempoEstimadoMin, Ativo)
+               Ativo)
 Orcamento     (Id, OficinaId, Numero, ClienteId, VeiculoId, Status,
                DescontoTipo [Valor|Percentual], DescontoValor,
                Validade, Observacoes, CriadoEm, EnviadoEm, AprovadoEm)
@@ -190,7 +190,7 @@ Uma camada "Aplicação" separada foi deixada de fora de propósito, para caber 
 ## 11. Pendências
 
 1. ~~**Cores do app**~~: resolvido no passo 10 (dourado e grafite, extraídos da logo).
-2. **Lista real de serviços**: recebida em 19/10/2026 (`docs/catalogo-servicos.md`). Separado por peça, com preços e tempos estimados (*). **Provisória:** a lista definitiva será alinhada com o pessoal da oficina, que executa os serviços. Como o catálogo é editável pelo app, isso não muda o código. **Importada em produção** no passo 15 (36 serviços).
+2. **Lista real de serviços**: recebida em 19/10/2026 (`docs/catalogo-servicos.md`). Separado por peça, com preços estimados (*). **Provisória:** a lista definitiva será alinhada com o pessoal da oficina, que executa os serviços. Como o catálogo é editável pelo app, isso não muda o código. **Importada em produção** no passo 15 (36 serviços).
 3. **Dados da oficina para o PDF**: CNPJ, endereço e telefone (o PDF já existe, passo 21; sem esses dados, ele mostra só o nome e a logo). Preencher com o comando `alterar-oficina`.
 4. ~~**Hospedagem da API**~~: resolvido no passo 11. Render Free (Docker, Virgínia) + Neon (us-east-1) + Vercel. **"Acordar" medido: 25,6 s** após 21 min parado (depois, 0,2 s por requisição).
    - **[A DEFINIR]** Aceitar o tempo, criar um "despertador" no horário de funcionamento ou pagar o plano do Render (~US$ 7/mês). Veja `docs/APRENDIZADO.md`, passo 11e.

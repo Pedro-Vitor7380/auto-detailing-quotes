@@ -11,8 +11,8 @@ public class OrcamentoTests
 
     private static Orcamento Criar() => new(OficinaId, 2026, 1, Guid.NewGuid(), Guid.NewGuid(), Hoje);
 
-    private static Servico Lavagem(decimal minimo = 120m, int tempo = 120) =>
-        new(OficinaId, Guid.NewGuid(), "Lavagem Detalhada", null, minimo, 180m, tempo);
+    private static Servico Lavagem(decimal minimo = 120m) =>
+        new(OficinaId, Guid.NewGuid(), "Lavagem Detalhada", null, minimo, 180m);
 
     // ===== Criação =====
 
@@ -52,7 +52,6 @@ public class OrcamentoTests
         Assert.Equal(120m, item.PrecoCatalogo);
         Assert.Equal(120m, item.ValorUnitario);
         Assert.Equal(0m, item.Ajuste);
-        Assert.Equal(120, item.TempoEstimadoMin);
     }
 
     [Fact]
@@ -72,11 +71,10 @@ public class OrcamentoTests
         var servico = Lavagem();
         var item = orcamento.AdicionarServico(servico);
 
-        servico.Atualizar(servico.CategoriaId, servico.Nome, null, 999m, 999m, 60);
+        servico.Atualizar(servico.CategoriaId, servico.Nome, null, 999m, 999m);
 
         Assert.Equal(120m, item.PrecoCatalogo);
         Assert.Equal(120m, item.ValorUnitario);
-        Assert.Equal(120, item.TempoEstimadoMin);
     }
 
     [Fact]
@@ -91,7 +89,7 @@ public class OrcamentoTests
     [Fact]
     public void AdicionarServico_DeOutraOficina_LancaRegraDeNegocio()
     {
-        var deOutraOficina = new Servico(Guid.NewGuid(), Guid.NewGuid(), "Lavagem", null, 100m, 100m, 60);
+        var deOutraOficina = new Servico(Guid.NewGuid(), Guid.NewGuid(), "Lavagem", null, 100m, 100m);
 
         Assert.Throws<RegraDeNegocioException>(() => Criar().AdicionarServico(deOutraOficina));
     }
@@ -115,30 +113,28 @@ public class OrcamentoTests
     }
 
     [Fact]
-    public void AtualizarItem_DoCatalogo_MantemDescricaoTempoEPrecoDeCatalogo()
+    public void AtualizarItem_DoCatalogo_MantemDescricaoEPrecoDeCatalogo()
     {
         var orcamento = Criar();
         var item = orcamento.AdicionarServico(Lavagem());
 
-        orcamento.AtualizarItem(item.Id, 2, 150m, "Barro no assoalho", descricaoAvulso: "Outro nome", tempoAvulsoMin: 999);
+        orcamento.AtualizarItem(item.Id, 2, 150m, "Barro no assoalho", descricaoAvulso: "Outro nome");
 
         Assert.Equal("Lavagem Detalhada", item.Descricao);
-        Assert.Equal(120, item.TempoEstimadoMin);
         Assert.Equal(120m, item.PrecoCatalogo);
         Assert.Equal(2, item.Quantidade);
         Assert.Equal(150m, item.ValorUnitario);
     }
 
     [Fact]
-    public void AtualizarItem_Avulso_PodeMudarDescricaoETempo()
+    public void AtualizarItem_Avulso_PodeMudarDescricao()
     {
         var orcamento = Criar();
         var item = orcamento.AdicionarAvulso("Adesivo", 1, 80m);
 
-        orcamento.AtualizarItem(item.Id, 1, 90m, null, descricaoAvulso: "Remoção de adesivos", tempoAvulsoMin: 45);
+        orcamento.AtualizarItem(item.Id, 1, 90m, null, descricaoAvulso: "Remoção de adesivos");
 
         Assert.Equal("Remoção de adesivos", item.Descricao);
-        Assert.Equal(45, item.TempoEstimadoMin);
     }
 
     [Fact]
@@ -154,11 +150,10 @@ public class OrcamentoTests
     {
         var orcamento = Criar();
         orcamento.AdicionarServico(Lavagem(), quantidade: 2);   // 2 × 120 = 240
-        orcamento.AdicionarAvulso("Adesivo", 1, 60.50m, 30);     // 60,50
+        orcamento.AdicionarAvulso("Adesivo", 1, 60.50m);         // 60,50
 
         Assert.Equal(300.50m, orcamento.Subtotal);
         Assert.Equal(300.50m, orcamento.Total);
-        Assert.Equal(2 * 120 + 30, orcamento.TempoEstimadoTotalMin);
     }
 
     [Fact]
@@ -335,7 +330,7 @@ public class OrcamentoTests
         original.DefinirDesconto(TipoDeDesconto.Percentual, 10m);
         original.DefinirObservacoes("Cliente antigo");
         original.Aprovar(Agora);
-        servico.Atualizar(servico.CategoriaId, servico.Nome, null, 999m, 999m, 60); // catálogo mudou depois
+        servico.Atualizar(servico.CategoriaId, servico.Nome, null, 999m, 999m); // catálogo mudou depois
 
         var copia = original.Duplicar(2026, 2, Hoje.AddDays(3));
 
