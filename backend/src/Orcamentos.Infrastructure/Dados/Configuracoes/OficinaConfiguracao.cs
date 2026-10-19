@@ -17,6 +17,8 @@ public class OficinaConfiguracao : IEntityTypeConfiguration<Oficina>
         builder.Property(o => o.Cnpj).HasMaxLength(18);       // 00.000.000/0000-00
         builder.Property(o => o.Telefone).HasMaxLength(20);
         builder.Property(o => o.Endereco).HasMaxLength(250);
-        builder.Property(o => o.LogoUrl).HasMaxLength(500);
+        // bytea: o tipo do PostgreSQL para dados binários. Vem junto sempre que a oficina é carregada,
+        // por isso o limite de 1 MB no Domínio.
+        builder.Property(o => o.Logo);
     }
 }

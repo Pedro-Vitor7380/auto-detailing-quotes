@@ -5,6 +5,7 @@ using Orcamentos.Api.Comum;
 using Orcamentos.Api.Features.Auth;
 using Orcamentos.Domain.Entidades;
 using Orcamentos.Infrastructure.Dados;
+using Orcamentos.Infrastructure.Pdf;
 
 namespace Orcamentos.Api.Features.Orcamentos;
 
@@ -54,6 +55,7 @@ public static partial class OrcamentosEndpoints
         grupo.MapPost("/{id:guid}/recusar", (Guid id, AppDbContext db, Relogio relogio, CancellationToken ct) =>
             MudarStatus(id, db, relogio, o => o.Recusar(relogio.Agora), ct)).WithSummary("Marca como recusado pelo cliente");
         grupo.MapPost("/{id:guid}/duplicar", Duplicar).WithSummary("Cria um rascunho novo com os mesmos dados");
+        grupo.MapGet("/{id:guid}/pdf", Pdf).WithSummary("PDF do orçamento, para enviar ao cliente");
 
         return app;
     }
@@ -177,6 +179,26 @@ public static partial class OrcamentosEndpoints
         return resultado.Problema is { } problema
             ? problema
             : TypedResults.Created($"/api/orcamentos/{resultado.Orcamento!.Id}", await ParaResponse(db, resultado.Orcamento, ct));
+    }
+
+    private static async Task<Results<FileContentHttpResult, ProblemHttpResult>> Pdf(
+        Guid id, AppDbContext db, Relogio relogio, CancellationToken ct)
+    {
+        await ExpirarVencidos(db, relogio, ct);
+        var orcamento = await db.Orcamentos.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id, ct);
+        if (orcamento is null)
+            return NaoEncontrado();
+
+        var oficina = await db.Oficinas.AsNoTracking().FirstAsync(o => o.Id == orcamento.OficinaId, ct);
+        var nomes = await NomesDeClientesEVeiculos(db, [orcamento], ct);
+        var cliente = nomes.Clientes[orcamento.ClienteId];
+        var veiculo = nomes.Veiculos[orcamento.VeiculoId];
+
+        var pdf = PdfDoOrcamento.Gerar(new DadosDoPdf(oficina, orcamento, cliente.Nome, cliente.WhatsApp,
+            veiculo.Placa, veiculo.Modelo, Relogio.DataNoFuso(orcamento.CriadoEm)));
+
+        // O nome do arquivo ("ORC-2026-0001.pdf") é o que aparece para o cliente no WhatsApp.
+        return TypedResults.File(pdf, "application/pdf", $"{orcamento.Numero}.pdf");
     }
 
     // ===== Regras que precisam do banco =====

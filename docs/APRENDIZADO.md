@@ -1554,3 +1554,77 @@ Na hora do build, o Vite **substitui** `__VERSAO_DO_APP__` pelo texto, como um "
 | Filtro e busca na URL; voltar mantém o filtro | ✅ |
 | Aprovar na tela do orçamento e voltar: sai da lista de Enviados | ✅ |
 | Botão Novo; sem rolagem horizontal em 360 px | ✅ |
+
+---
+
+# Semana 4
+
+## Passo 21 — PDF do orçamento
+
+### O que foi feito
+- **`PdfDoOrcamento`** (Infraestrutura): monta o PDF com o **QuestPDF**.
+- **`GET /api/orcamentos/{id}/pdf`**: devolve o arquivo `ORC-2026-0001.pdf`. Esse é o nome que o cliente vai ver no WhatsApp.
+- **Logo no banco** (`oficinas.logo`, tipo `bytea`), gravada com o comando **`definir-logo`**. A coluna `logo_url`, que nunca foi preenchida, saiu.
+- **`docs/marca/logo-pdf.png`** (480 px, 148 KB), gerada pelo mesmo script dos ícones.
+- **Botão "PDF"** no app: no computador, abre numa aba; no celular, baixa o arquivo.
+
+### QuestPDF: a página descrita em C#
+O documento é montado como "caixas dentro de caixas", parecido com montar uma tela:
+```csharp
+Document.Create(doc => doc.Page(pagina =>
+{
+    pagina.Size(PageSizes.A4);
+    pagina.Header().Element(Cabecalho);        // logo, oficina, número
+    pagina.Content().Element(Conteudo);        // cliente, veículo, itens, totais, prazo
+    pagina.Footer().Text(t => { t.CurrentPageNumber(); t.Span(" de "); t.TotalPages(); });
+})).GeneratePdf();
+```
+- **`Row`** coloca coisas lado a lado; **`Column`**, uma embaixo da outra; **`Table`** monta a tabela de itens, que **quebra de página sozinha**, repetindo o cabeçalho, se o orçamento for longo.
+- **Licença:** `QuestPDF.Settings.License = LicenseType.Community` (gratuita até US$ 1 milhão de faturamento anual). Sem essa linha, a biblioteca se recusa a gerar o PDF.
+- **A versão escolhida** foi a 2026.9.1, publicada havia mais de 3 semanas. Uma versão nova demais ainda pode ter problemas que ninguém descobriu (lembre do `@hookform/resolvers` 6.0, no passo 14).
+
+### O que o cliente vê, e o que fica só para a oficina
+O PDF mostra os **valores finais** e a **observação do estado** ("Interior com muitos pelos de animal…"), que justifica o preço. O **preço de catálogo** e o "+R$ 30 pelo estado" **não aparecem**: são informação interna, para quem faz o orçamento.
+
+Também foram pensados para o cliente:
+- **Prazo em dias úteis:** "3 dias úteis" diz mais do que "1.410 min". Até 8 h, o prazo aparece em horas.
+- **WhatsApp e placa formatados**, como no app.
+- **Só os dados cadastrados da oficina aparecem:** sem CNPJ, a linha do CNPJ simplesmente não existe, em vez de mostrar "CNPJ: (vazio)".
+
+### Validar arquivo pelos primeiros bytes ("assinatura")
+Todo PNG começa com os bytes `89 50 4E 47` ("‰PNG"), e todo JPEG com `FF D8 FF`. O `Oficina.DefinirLogo` confere esses bytes em vez da extensão. Assim, um arquivo `.png` que na verdade é outra coisa não passa: o teste usou o próprio `gerar_icones.py` e recebeu "A logo precisa ser uma imagem PNG ou JPEG.". Também há um limite de 1 MB, porque a logo vem junto sempre que a oficina é carregada.
+
+### O teste que importava: dentro do container
+Bibliotecas de PDF costumam funcionar no Windows e **quebrar no Linux do servidor**, por três motivos comuns:
+1. **Fontes:** o container não tem fontes instaladas.
+2. **Bibliotecas nativas:** o QuestPDF desenha com o Skia, que tem partes em C++.
+3. **Idioma:** se o .NET rodar sem os dados de idioma (ICU), `CultureInfo("pt-BR")` não existe, e "R$ 1.966,50" não sai.
+
+**Teste:** construí a imagem Docker (a mesma do Render), rodei o container apontando para o banco local e pedi o mesmo PDF. Resultado:
+- PDF idêntico, com as fontes **Lato** embutidas (o QuestPDF traz a Lato junto, sem depender do sistema);
+- "R$ 1.966,50", "Conceição", "26/10/2026", "3 dias úteis" e "Página 1 de 1" no texto;
+- nenhum erro no log.
+
+Para **ver** o PDF sem abrir na mão, o teste usou a biblioteca **PyMuPDF**, instalada só na pasta temporária, fora do projeto. Ela converteu a página em imagem, leu o texto e listou as fontes.
+
+### Abrir um arquivo protegido por login
+A API exige o token, e um link comum (`<a href="/api/...pdf">`) não envia o token. O app então:
+1. baixa o PDF com o token (`requisicao(..., { formato: 'arquivo' })` devolve um `Blob`);
+2. cria um endereço temporário para ele (`URL.createObjectURL`);
+3. **no computador**, abre numa aba que foi aberta **no instante do clique**. Depois de um `await`, o navegador trata a abertura como pop-up e bloqueia;
+4. **no celular** (`pointer: coarse`), baixa o arquivo, porque outra aba dentro do app instalado atrapalha mais do que ajuda;
+5. libera a memória depois de 1 minuto (`revokeObjectURL`).
+
+O botão fica **bloqueado com alterações não salvas**: o PDF sairia com os valores antigos.
+
+### Testes feitos
+| Teste | Resultado |
+|---|---|
+| Testes de unidade (logo: PNG/JPEG aceitos, GIF e > 1 MB recusados) | ✅ 80 de 80 |
+| `definir-logo` com um arquivo que não é imagem | ✅ recusado |
+| PDF pela API (Windows) | ✅ 200, `application/pdf`, `ORC-2026-0001.pdf`, 101 KB, 0,67 s; conferido como imagem |
+| PDF pelo **container Docker** | ✅ idêntico, fontes Lato, pt-BR, acentos |
+| Botão no celular | ✅ baixa `ORC-2026-0001.pdf` (começa com `%PDF-`) |
+| Botão no computador | ✅ abre numa aba nova |
+| Alteração não salva | ✅ PDF bloqueado |
+| Tela do orçamento (passo 19) de novo | ✅ 27 de 27, nada quebrou |

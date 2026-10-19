@@ -22,8 +22,12 @@ export function definirAoSessaoExpirar(callback: () => void) {
 /**
  * Faz uma requisição à API. Coloca o token automaticamente, converte o corpo para JSON
  * e transforma respostas de erro em ErroDaApi.
+ * formato 'arquivo': devolve o conteúdo como Blob (ex.: o PDF do orçamento), em vez de ler JSON.
  */
-export async function requisicao<T>(caminho: string, opcoes: { metodo?: string; corpo?: unknown } = {}): Promise<T> {
+export async function requisicao<T>(
+  caminho: string,
+  opcoes: { metodo?: string; corpo?: unknown; formato?: 'json' | 'arquivo' } = {},
+): Promise<T> {
   const token = lerSessao()?.token
   const cabecalhos: Record<string, string> = { Accept: 'application/json' }
   if (opcoes.corpo !== undefined) cabecalhos['Content-Type'] = 'application/json'
@@ -45,6 +49,7 @@ export async function requisicao<T>(caminho: string, opcoes: { metodo?: string; 
 
   if (!resposta.ok) throw new ErroDaApi(resposta.status, await extrairMensagemDeErro(resposta))
 
+  if (opcoes.formato === 'arquivo') return (await resposta.blob()) as T
   return (resposta.status === 204 ? undefined : await resposta.json()) as T
 }
 

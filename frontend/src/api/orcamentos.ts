@@ -92,6 +92,7 @@ export const apiOrcamentos = {
   aprovar: (id: string) => requisicao<Orcamento>(`/api/orcamentos/${id}/aprovar`, { metodo: 'POST' }),
   recusar: (id: string) => requisicao<Orcamento>(`/api/orcamentos/${id}/recusar`, { metodo: 'POST' }),
   duplicar: (id: string) => requisicao<Orcamento>(`/api/orcamentos/${id}/duplicar`, { metodo: 'POST' }),
+  pdf: (id: string) => requisicao<Blob>(`/api/orcamentos/${id}/pdf`, { formato: 'arquivo' }),
 }
 
 export const chavesOrcamentos = {

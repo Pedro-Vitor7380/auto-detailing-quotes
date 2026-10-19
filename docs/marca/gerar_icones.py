@@ -2,6 +2,7 @@
 
 Uso (na raiz do projeto, requer Pillow: pip install pillow):
     python docs/marca/gerar_icones.py docs/marca/logo-original.jpg frontend/public/icons
+Também gera docs/marca/logo-pdf.png (a logo do PDF do orçamento).
 """
 import sys
 from pathlib import Path
@@ -50,6 +51,12 @@ em_fundo_grafite(512, 0.78).save(destino / "icon-maskable-512.png", optimize=Tru
 em_fundo_grafite(180, 0.88).convert("RGB").save(destino / "apple-touch-icon.png", optimize=True)
 redondo(64).save(destino / "favicon-64.png", optimize=True)
 redondo(256).save(destino / "logo-256.png", optimize=True)
+
+# Logo do PDF do orçamento (vai para o banco com o comando definir-logo). 480 px impressos em ~2 cm
+# dão ~600 dpi: nítida no papel e leve (o limite da oficina é 1 MB). Fica ao lado do original, não no app.
+logo_pdf = origem.parent / "logo-pdf.png"
+redondo(480).save(logo_pdf, optimize=True)
+print(f"{logo_pdf.name:24} 480x480  RGBA  {logo_pdf.stat().st_size / 1024:6.1f} KB  (em {logo_pdf.parent})")
 
 for arquivo in sorted(destino.glob("*.png")):
     with Image.open(arquivo) as im:

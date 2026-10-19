@@ -111,10 +111,9 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("endereco");
 
-                    b.Property<string>("LogoUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("logo_url");
+                    b.Property<byte[]>("Logo")
+                        .HasColumnType("bytea")
+                        .HasColumnName("logo");
 
                     b.Property<string>("Nome")
                         .IsRequired()

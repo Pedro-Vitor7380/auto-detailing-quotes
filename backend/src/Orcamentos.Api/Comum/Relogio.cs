@@ -13,5 +13,8 @@ public class Relogio(TimeProvider tempo)
 
     public DateTimeOffset Agora => tempo.GetUtcNow();
 
-    public DateOnly Hoje => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(Agora, FusoDaOficina).DateTime);
+    public DateOnly Hoje => DataNoFuso(Agora);
+
+    /// <summary>O dia de um instante, no fuso da oficina (ex.: a data de emissão impressa no PDF).</summary>
+    public static DateOnly DataNoFuso(DateTimeOffset instante) => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instante, FusoDaOficina).DateTime);
 }
