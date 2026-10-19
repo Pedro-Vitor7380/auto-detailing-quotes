@@ -67,17 +67,12 @@ public class Servico : EntidadeDaOficina
         CategoriaId = categoriaId;
         Nome = nome;
         Descricao = descricao;
-        PrecoMinimo = ArredondarCentavos(precoMinimo);
-        PrecoMaximo = ArredondarCentavos(precoMaximo);
+        PrecoMinimo = Dinheiro.Arredondar(precoMinimo);
+        PrecoMaximo = Dinheiro.Arredondar(precoMaximo);
         TempoEstimadoMin = tempoEstimadoMin;
     }
 
     public void Ativar() => Ativo = true;
 
     public void Desativar() => Ativo = false;
-
-    // Dinheiro com 2 casas: evita guardar R$ 10,005, que nenhum cliente consegue pagar.
-    // AwayFromZero é o arredondamento "da escola" (,005 sobe). O padrão do .NET arredondaria para o par.
-    private static decimal ArredondarCentavos(decimal valor) =>
-        decimal.Round(valor, 2, MidpointRounding.AwayFromZero);
 }

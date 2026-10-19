@@ -1356,3 +1356,97 @@ O banco guarda `ABC1234`, mas a tela mostra **`ABC-1234`** para a placa antiga e
 
 ### Verificação em produção, antes da migration
 Uma consulta **só de leitura** no Neon (`pg_available_extensions`) confirmou que ele oferece a extensão `unaccent` (versão 1.1), ainda não instalada. A migration vai instalá-la.
+
+### Pegadinha de Git: PRs empilhados mesclados fora de ordem
+O PR das telas (#18) tinha como base a branch da API (`feat/clientes-api`), e não a `main`. A API (#17) foi mesclada primeiro e a branch dela **não foi apagada**. Assim, o GitHub não trocou a base do #18, e o merge dele levou as telas para a branch da API, não para a `main`. Foi preciso um PR extra (#19). **Lição:** a partir daqui, um PR por vez, sempre com base `main`.
+
+---
+
+# Semana 3
+
+## Passo 18 — Back-end do orçamento (domínio, banco e API)
+
+### As regras, onde ficam e por quê
+| Regra | Onde |
+|---|---|
+| Item do catálogo entra pelo preço mínimo e **guarda uma cópia** (nome, preço, tempo) | `Orcamento.AdicionarServico` |
+| Ajuste por estado: `Ajuste = ValorUnitario − PrecoCatalogo` | `ItemOrcamento` |
+| Desconto em R$ ou %, nunca maior que o subtotal | `Orcamento.DefinirDesconto` e `ValorDoDesconto` |
+| Validade de 7 dias; Enviado vira Expirado **no dia seguinte** ao fim | `Orcamento.ExpirarSeVencido` |
+| Transições de status (o que pode virar o quê) | `MarcarComoEnviado`, `Aprovar`, `Recusar` |
+| Aprovado, recusado e expirado não editam: **duplicar** | `GarantirEditavel`, `Duplicar` |
+| Excluir só rascunho | `GarantirQuePodeSerExcluido` |
+| O veículo é do cliente escolhido; o serviço é desta oficina | Endpoint (precisa do banco) |
+| Número sequencial por oficina e ano | `ContadorDeOrcamentos` (banco) |
+
+**33 testes novos** no domínio, **77 no total**. Os testes de dinheiro e de status são os mais importantes do projeto: um erro ali vira **prejuízo** ou um **orçamento errado na mão do cliente**.
+
+### O domínio não lê o relógio
+Nenhum método chama `DateTime.Now`. Quem chama passa `hoje` e `agora`:
+```csharp
+orcamento.ExpirarSeVencido(hoje);
+orcamento.Aprovar(agora);
+```
+Por isso o teste "expira só no dia seguinte" roda em milissegundos: ele passa `Validade` e depois `Validade.AddDays(1)`. Na API, o **`Relogio`** decide o que é "hoje" **no fuso de São Paulo**. O Render roda em UTC, e às 22h de São Paulo já é o dia seguinte em UTC: sem a conversão, um orçamento expiraria 3 horas antes. O `Relogio` usa o `TimeProvider` do .NET, que pode ser trocado por um relógio "parado" em testes futuros.
+
+### Valores calculados, não guardados
+`Subtotal`, `ValorDoDesconto`, `Total` e `TempoEstimadoTotalMin` são propriedades calculadas a partir dos itens, e **não existem no banco**. Assim, é impossível um total "desencontrado" dos itens. O preço disso: a lista calcula o total no C#, carregando os itens. Com no máximo 50 orçamentos por tela, isso não pesa.
+
+### Itens como "owned" (`OwnsMany`)
+No EF, os itens são **propriedade** do orçamento: não têm `DbSet` próprio, são sempre carregados junto e herdam o filtro por oficina. É o mapeamento que combina com o agregado (passo 16). A tabela é `itens_orcamento`, e o `ValueGeneratedNever()` voltou a ser necessário, pela mesma pegadinha do `Veiculo`.
+
+### Salvar = sincronizar
+O app envia o orçamento **inteiro**, como está na tela. O endpoint compara com o que está no banco:
+- item **com `id`** → `AtualizarItem` (o preço de catálogo guardado **não muda**);
+- item **sem `id`** → item novo (do catálogo, se tiver `servicoId`, ou avulso);
+- item que **sumiu** da lista → `RemoverItem`.
+
+Um formato só serve para criar e para salvar, e o app faz **uma** chamada por "Salvar". Isso importa com a API acordando no Render.
+
+### Pegadinha: a numeração falhou com pedidos simultâneos
+**Primeira versão:** o próximo número era "o maior + 1". Se duas pessoas criassem um orçamento no mesmo instante, as duas calculariam o mesmo número. O índice único recusaria a segunda, que tentaria de novo, com até 3 tentativas.
+
+**O teste com 5 criações simultâneas pegou o problema:** só **4 de 5** foram gravadas. Um pedido "azarado" perdeu a disputa 4 vezes seguidas e esgotou as tentativas. Aumentar as tentativas só diminuiria a chance do erro, sem eliminá-la.
+
+**Versão final:** uma tabela `contadores_de_orcamentos` (uma linha por oficina e ano), incrementada pelo banco numa única instrução **atômica**:
+```sql
+INSERT INTO contadores_de_orcamentos (oficina_id, ano, ultimo) VALUES (@oficina, @ano, 1)
+ON CONFLICT (oficina_id, ano) DO UPDATE SET ultimo = contadores_de_orcamentos.ultimo + 1
+RETURNING ultimo
+```
+- **Dentro de uma transação**, junto com a gravação do orçamento. O PostgreSQL **trava a linha** do contador até o fim, então o segundo pedido **espera** o primeiro terminar e recebe o número seguinte. Isso se chama *bloqueio pessimista*.
+- **Se algo falhar no meio**, como um item inválido, a transação é desfeita (`await using` sem `Commit`) e o contador volta. Assim, não ficam "buracos" na numeração.
+- **`$"..."` no `SqlQuery`** vira parâmetros. Nunca concatene valores em SQL: isso abre espaço para *SQL injection*.
+
+**Prova:** 10 criações simultâneas e depois **3 rodadas de 20**: 60 orçamentos, todos com números diferentes e **seguidos** (16 a 75). Um orçamento recusado por erro **não gastou número**.
+
+### Expirar sem carregar um por um (`ExecuteUpdate`)
+Antes de listar ou abrir um orçamento, um único `UPDATE` no banco expira todos os vencidos:
+```csharp
+db.Orcamentos.Where(o => o.Status == Enviado && o.Validade < hoje)
+             .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, Expirado));
+```
+É a mesma regra de `Orcamento.ExpirarSeVencido`, mas sem trazer os orçamentos para o C#. O filtro por oficina vale também aqui. O trade-off: a regra existe em dois lugares (Domínio e consulta), por isso um comentário aponta de um para o outro.
+
+### Outras mudanças
+- **Enums no JSON como texto** (`"status": "Rascunho"`, e não `0`), com o `JsonStringEnumConverter`, para todos os endpoints.
+- **Cliente ou veículo com orçamentos não podem mais ser excluídos** (409 com explicação), e o banco também barra (`Restrict`).
+- **`Dinheiro.Arredondar`**: o arredondamento de centavos saiu do `Servico` e foi para um lugar só, porque agora itens, desconto e total também usam.
+- **Busca por número só quando a busca inteira é um número de orçamento** ("3", "0003", "ORC-2026-0003"). Toda placa termina em números, e "ABC1D23" acharia o orçamento 23.
+
+### Testes feitos (script Python, contra a API local)
+**40 verificações, todas certas** (depois da correção da numeração):
+
+| Grupo | Casos |
+|---|---|
+| Criar | ✅ número, status, subtotal 1.000 − 10% = 900, ajuste (catálogo 600 → 800 = +200), validade +7, prazo 660 min, ordem dos itens |
+| Validações | ✅ veículo de outro cliente, serviço inexistente, quantidade zero, desconto > subtotal, validade no passado |
+| Catálogo | ✅ mudar o preço do serviço **não** altera o orçamento |
+| Salvar | ✅ alterar, remover e adicionar itens numa chamada; o item alterado mantém o Id; total 1.140 |
+| Status | ✅ enviar → aprovar; aprovado não edita nem exclui; recusado e expirado não aprovam; enviar sem itens |
+| Expiração | ✅ enviado vencido vira Expirado; rascunho vencido não |
+| Duplicar | ✅ rascunho novo, próximo número, mesmo total |
+| Lista | ✅ mais recente primeiro; filtro por status; busca por número, placa (sem achar o nº 23) e nome sem acento |
+| Numeração | ✅ 10 simultâneos com números seguidos; erro não gasta número |
+| Isolamento | ✅ a oficina B não lista, não lê, não duplica e não usa o cliente de A |
+| Proteções | ✅ cliente e veículo com orçamentos dão 409; rascunho exclui |

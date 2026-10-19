@@ -107,7 +107,10 @@ public static partial class ClientesEndpoints
         if (cliente is null)
             return ClienteNaoEncontrado();
 
-        // Na semana 3, um cliente com orçamentos não poderá ser excluído (os orçamentos apontam para ele).
+        // Os orçamentos apontam para o cliente: excluí-lo apagaria o histórico. O banco também barraria (Restrict).
+        if (await db.Orcamentos.AnyAsync(o => o.ClienteId == id, ct))
+            return Problemas.Conflito("Este cliente tem orçamentos e não pode ser excluído.");
+
         db.Clientes.Remove(cliente);
         await db.SaveChangesAsync(ct);
 
@@ -150,6 +153,9 @@ public static partial class ClientesEndpoints
         var cliente = await Carregar(db, id, ct);
         if (cliente is null)
             return ClienteNaoEncontrado();
+
+        if (await db.Orcamentos.AnyAsync(o => o.VeiculoId == veiculoId, ct))
+            return Problemas.Conflito("Este veículo tem orçamentos e não pode ser removido.");
 
         cliente.RemoverVeiculo(veiculoId);
         await db.SaveChangesAsync(ct);
