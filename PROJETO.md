@@ -26,7 +26,7 @@ O projeto tem **dois objetivos ao mesmo tempo**:
 | Internet | **Sempre online**. Não precisa funcionar offline. |
 | Envio ao cliente | **PDF pelo WhatsApp**. O cliente aprova pela conversa e o dono marca o orçamento como aprovado no app. |
 | Preço | **Faixa de preço por serviço** (mínimo e máximo), com **ajuste manual por item** conforme o estado do veículo. O item entra no orçamento pelo **mínimo**. Não varia pelo porte. *(Revisado em 19/10/2026: a lista real veio em faixas.)* |
-| Catálogo | **10 a 30 serviços**, organizados em categorias. |
+| Catálogo | **~36 serviços**, organizados em categorias. Quando o preço depende da peça (martelinho, retoque, pintura, película), cada peça vira um serviço próprio. *(Revisado em 19/10/2026.)* |
 | Pacotes/combos | **Não** existem. |
 | Fotos do veículo | **Não** fazem parte do processo. |
 | Depois da aprovação | **Só marcar como aprovado**. O app não controla a execução nem a agenda. |
@@ -186,7 +186,7 @@ Uma camada "Aplicação" separada foi deixada de fora de propósito, para caber 
 ## 11. Pendências
 
 1. ~~**Cores do app**~~: resolvido no passo 10 (dourado e grafite, extraídos da logo).
-2. **Lista real de serviços**: recebida em 19/10/2026 (`docs/catalogo-servicos.md`). Faltam preços de 3 serviços, as variantes de PPF e Vitrificação e os tempos médios.
+2. **Lista real de serviços**: recebida em 19/10/2026 (`docs/catalogo-servicos.md`). Separado por peça, com estimativas marcadas para revisão. Faltam os tempos médios.
 3. **Dados da oficina para o PDF**: nome, CNPJ, endereço, telefone e redes sociais.
 4. ~~**Hospedagem da API**~~: resolvido no passo 11. Render Free (Docker, Virgínia) + Neon (us-east-1) + Vercel. **"Acordar" medido: 25,6 s** após 21 min parado (depois, 0,2 s por requisição).
    - **[A DEFINIR]** Aceitar o tempo, criar um "despertador" no horário de funcionamento ou pagar o plano do Render (~US$ 7/mês). Veja `docs/APRENDIZADO.md`, passo 11e.
