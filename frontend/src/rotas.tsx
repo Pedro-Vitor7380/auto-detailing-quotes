@@ -4,6 +4,9 @@ import { EmConstrucao } from './components/EmConstrucao'
 import { AppLayout } from './layouts/AppLayout'
 import { InicioPage } from './pages/InicioPage'
 import { LoginPage } from './pages/LoginPage'
+import { ClientePage } from './pages/clientes/ClientePage'
+import { ClientesPage } from './pages/clientes/ClientesPage'
+import { NovoClientePage } from './pages/clientes/NovoClientePage'
 import { NaoEncontradoPage } from './pages/NaoEncontradoPage'
 import { CategoriasPage } from './pages/servicos/CategoriasPage'
 import { ServicoFormPage } from './pages/servicos/ServicoFormPage'
@@ -23,7 +26,9 @@ export const rotas = createBrowserRouter([
           { index: true, element: <InicioPage /> },
           { path: 'orcamentos', element: <EmConstrucao titulo="Orçamentos" previsao="semana 3" /> },
           { path: 'orcamentos/novo', element: <EmConstrucao titulo="Novo orçamento" previsao="semana 3" /> },
-          { path: 'clientes', element: <EmConstrucao titulo="Clientes" previsao="semana 2" /> },
+          { path: 'clientes', element: <ClientesPage /> },
+          { path: 'clientes/novo', element: <NovoClientePage /> },
+          { path: 'clientes/:id', element: <ClientePage /> },
           { path: 'servicos', element: <ServicosPage /> },
           // "categorias" e "novo" vêm antes de ":id": o React Router escolhe a rota mais específica.
           { path: 'servicos/categorias', element: <CategoriasPage /> },
