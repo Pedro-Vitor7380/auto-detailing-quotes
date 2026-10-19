@@ -1513,3 +1513,44 @@ Apertar Enter ("Ir", no teclado do celular) em **qualquer** campo envia o formul
 | Duplicar → Excluir | ✅ ORC-2026-0002 rascunho com o mesmo total; excluir volta para a lista |
 | Computador | ✅ busca de cliente existente com 1 carro já seleciona direto |
 | Layout | ✅ sem rolagem horizontal em 360 px; console sem erros |
+
+## Passo 20 — Lista de orçamentos e versão do app
+
+### Pergunta: "não consegui fazer um orçamento, ainda aparece 'em construção'"
+> *"Fiz o merge, testei no celular, mas não consegui fazer um orçamento, ainda aparece como 'em construção'."*
+
+**O que foi conferido:** o código publicado na Vercel **já tinha** a tela nova (o arquivo do app continha "Adicionar serviços" e "Cadastrar e usar"). Sobraram duas explicações, e daqui não dava para saber qual das duas aconteceu:
+1. **A aba "Orçamentos" ainda era "em construção" de propósito**: a lista é este passo. A tela nova só abria pelo botão **"Novo orçamento"** do Início, e isso deveria ter sido avisado com mais clareza.
+2. **O app instalado ainda estava com a versão antiga.** O PWA (passo 10) guarda o app no celular para abrir rápido. Com `registerType: 'autoUpdate'`, a versão nova é baixada **em segundo plano** quando o app abre, mas só passa a valer quando o app é **fechado e aberto de novo**. Às vezes é preciso fazer isso duas vezes: uma para baixar, outra para usar.
+
+**O que mudou para isso não confundir de novo:**
+- **Nenhuma tela é mais "em construção"**: a aba Orçamentos agora é a lista, e o componente provisório foi apagado.
+- **O número da versão aparece no app**: no fim do Início (celular) e no menu lateral (computador), como `Versão e79fe6b · 19/10/2026, 12:33`. É o começo do código do commit e a data do build. Para conferir se o celular está atualizado, compare com o último commit do GitHub.
+
+### Como a versão entra no app (`define` do Vite)
+```ts
+// vite.config.ts
+define: { __VERSAO_DO_APP__: JSON.stringify(versaoDoBuild()) }
+```
+Na hora do build, o Vite **substitui** `__VERSAO_DO_APP__` pelo texto, como um "localizar e substituir" no código final. O commit vem da variável `VERCEL_GIT_COMMIT_SHA`, que a Vercel fornece no build, ou do próprio Git (`git rev-parse HEAD`), no PC. Para o TypeScript não reclamar de uma variável que "não existe", ela é declarada em `vite-env.d.ts`.
+
+### A lista
+- **Filtros por status** (Todos, Rascunhos, Enviados, Aprovados, Recusados, Expirados) e **busca** por cliente (sem acento), placa ou número, que a API já fazia desde o passo 18.
+- **Filtro e busca ficam na URL** (`/orcamentos?status=Enviado&busca=joao`), com o `useSearchParams` do React Router. Abrir um orçamento e tocar em "voltar" traz a lista **exatamente como estava**. `replace: true` evita que cada letra digitada vire uma entrada no histórico do "voltar".
+- **Enviado mostra "vale até"**, e os demais mostram a data de criação. Para um orçamento enviado, o que importa no pátio é até quando ele vale.
+- **Lista vazia** oferece "Fazer o primeiro". Com 50 resultados (o limite da API), aparece um aviso para usar a busca.
+- **Layout em 3 linhas** (número + total / cliente + status / placa + data): a primeira versão deixava o total numa coluna à direita, e no celular de 360 px o selo de status quebrava de linha e o "vale até" ficava cortado. A captura de tela mostrou isso, e o teste automático não pegaria.
+
+### Testes feitos (Playwright, no Edge, com dados criados pela API)
+**20 verificações, todas certas.** A primeira rodada teve 3 falhas, todas do **próprio teste**: ele conferia a tela **antes** de o React redesenhá-la. Num dos casos, a lista anterior tinha 1 linha e a nova também, e o teste deu "ok" para a lista **antiga**. A correção foi esperar pelo **conteúdo** certo (os números dos orçamentos), e não só pela quantidade de linhas.
+
+| Caso | Resultado |
+|---|---|
+| Versão no Início e no menu lateral | ✅ |
+| Lista vazia com "Fazer o primeiro"; nada "em construção" | ✅ |
+| 4 orçamentos, o mais recente primeiro; linha com cliente, placa, total e "vale até" | ✅ |
+| Filtros Aprovados, Rascunhos, Expirados (vazio) e Todos | ✅ |
+| Busca por cliente, placa e número | ✅ |
+| Filtro e busca na URL; voltar mantém o filtro | ✅ |
+| Aprovar na tela do orçamento e voltar: sai da lista de Enviados | ✅ |
+| Botão Novo; sem rolagem horizontal em 360 px | ✅ |
