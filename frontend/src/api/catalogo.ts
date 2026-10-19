@@ -15,7 +15,6 @@ export interface Servico {
   descricao: string | null
   precoMinimo: number
   precoMaximo: number
-  tempoEstimadoMin: number
   ativo: boolean
 }
 
@@ -25,7 +24,6 @@ export interface DadosDoServico {
   descricao: string | null
   precoMinimo: number
   precoMaximo: number
-  tempoEstimadoMin: number
 }
 
 export const apiCatalogo = {

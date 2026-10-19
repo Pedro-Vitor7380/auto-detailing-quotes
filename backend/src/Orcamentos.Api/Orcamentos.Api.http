@@ -53,8 +53,7 @@ Content-Type: application/json
   "categoriaId": "{{categoria.response.body.id}}",
   "nome": "Lavagem Detalhada / Premium",
   "precoMinimo": 120,
-  "precoMaximo": 180,
-  "tempoEstimadoMin": 120
+  "precoMaximo": 180
 }
 
 ### Faixa inválida: deve responder 400 com a mensagem da regra
@@ -66,8 +65,7 @@ Content-Type: application/json
   "categoriaId": "{{categoria.response.body.id}}",
   "nome": "Serviço com faixa errada",
   "precoMinimo": 300,
-  "precoMaximo": 100,
-  "tempoEstimadoMin": 60
+  "precoMaximo": 100
 }
 
 ### Lista os serviços ativos (experimente ?busca=lava ou ?incluirInativos=true)
@@ -118,7 +116,7 @@ Content-Type: application/json
 {
   "clienteId": "{{cliente.response.body.id}}",
   "veiculoId": "{{cliente.response.body.$.veiculos[0].id}}",
-  "itens": [{ "descricao": "Lavagem de teste", "quantidade": 1, "valorUnitario": 150, "tempoEstimadoMin": 120 }],
+  "itens": [{ "descricao": "Lavagem de teste", "quantidade": 1, "valorUnitario": 150 }],
   "descontoTipo": "Percentual",
   "descontoValor": 10
 }

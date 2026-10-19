@@ -32,14 +32,6 @@ export function lerValorEmReais(texto: string): number | null {
   return Number(limpo)
 }
 
-/** 90 → "1 h 30", 45 → "45 min", 120 → "2 h" */
-export function formatarDuracao(minutos: number): string {
-  const horas = Math.floor(minutos / 60)
-  const resto = minutos % 60
-  if (horas === 0) return `${resto} min`
-  return resto === 0 ? `${horas} h` : `${horas} h ${String(resto).padStart(2, '0')}`
-}
-
 /** Para buscas: "Higienização" e "higienizacao" viram o mesmo texto. */
 export function normalizarParaBusca(texto: string): string {
   return texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()

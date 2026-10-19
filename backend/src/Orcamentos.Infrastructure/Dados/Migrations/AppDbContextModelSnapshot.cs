@@ -264,10 +264,6 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("preco_minimo");
 
-                    b.Property<int>("TempoEstimadoMin")
-                        .HasColumnType("integer")
-                        .HasColumnName("tempo_estimado_min");
-
                     b.HasKey("Id")
                         .HasName("pk_servicos");
 
@@ -472,10 +468,6 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                             b1.Property<Guid?>("ServicoId")
                                 .HasColumnType("uuid")
                                 .HasColumnName("servico_id");
-
-                            b1.Property<int>("TempoEstimadoMin")
-                                .HasColumnType("integer")
-                                .HasColumnName("tempo_estimado_min");
 
                             b1.Property<decimal>("ValorUnitario")
                                 .HasPrecision(10, 2)

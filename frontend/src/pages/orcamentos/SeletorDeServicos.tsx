@@ -3,7 +3,7 @@ import { Check, Plus, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { apiCatalogo, chavesCatalogo, type Servico } from '../../api/catalogo'
 import { AlertaDeErro, Carregando, classeDoBotaoPrincipal, classeDoCampo } from '../../components/formulario'
-import { formatarDuracao, formatarFaixa, normalizarParaBusca } from '../../lib/formatacao'
+import { formatarFaixa, normalizarParaBusca } from '../../lib/formatacao'
 
 interface Props {
   aoFechar: () => void
@@ -85,7 +85,7 @@ export function SeletorDeServicos({ aoFechar, aoAdicionar, noOrcamento }: Props)
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{s.nome}</p>
                       <p className="text-sm text-slate-500">
-                        {formatarFaixa(s.precoMinimo, s.precoMaximo)} · {formatarDuracao(s.tempoEstimadoMin)}
+                        {formatarFaixa(s.precoMinimo, s.precoMaximo)}
                       </p>
                     </div>
                     {vezes > 0 ? (

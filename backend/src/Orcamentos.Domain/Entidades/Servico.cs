@@ -21,14 +21,13 @@ public class Servico : EntidadeDaOficina
     /// <summary>Teto de referência. O valor ajustado no orçamento pode passar dele.</summary>
     public decimal PrecoMaximo { get; private set; }
 
-    public int TempoEstimadoMin { get; private set; }
     public bool Ativo { get; private set; } = true;
 
     public Servico(Guid oficinaId, Guid categoriaId, string nome, string? descricao,
-        decimal precoMinimo, decimal precoMaximo, int tempoEstimadoMin)
+        decimal precoMinimo, decimal precoMaximo)
         : base(oficinaId)
     {
-        Atualizar(categoriaId, nome, descricao, precoMinimo, precoMaximo, tempoEstimadoMin);
+        Atualizar(categoriaId, nome, descricao, precoMinimo, precoMaximo);
     }
 
     // Construtor vazio exigido pelo Entity Framework para recriar o objeto a partir do banco.
@@ -39,7 +38,7 @@ public class Servico : EntidadeDaOficina
     /// (ex.: mínimo e máximo precisam ser conferidos juntos).
     /// </summary>
     public void Atualizar(Guid categoriaId, string nome, string? descricao,
-        decimal precoMinimo, decimal precoMaximo, int tempoEstimadoMin)
+        decimal precoMinimo, decimal precoMaximo)
     {
         if (categoriaId == Guid.Empty)
             throw new RegraDeNegocioException("O serviço precisa de uma categoria.");
@@ -61,15 +60,11 @@ public class Servico : EntidadeDaOficina
         if (precoMaximo < precoMinimo)
             throw new RegraDeNegocioException("O preço máximo não pode ser menor que o mínimo.");
 
-        if (tempoEstimadoMin <= 0)
-            throw new RegraDeNegocioException("O tempo estimado precisa ser maior que zero.");
-
         CategoriaId = categoriaId;
         Nome = nome;
         Descricao = descricao;
         PrecoMinimo = Dinheiro.Arredondar(precoMinimo);
         PrecoMaximo = Dinheiro.Arredondar(precoMaximo);
-        TempoEstimadoMin = tempoEstimadoMin;
     }
 
     public void Ativar() => Ativo = true;

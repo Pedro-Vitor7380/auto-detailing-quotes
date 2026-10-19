@@ -9,11 +9,11 @@ namespace Orcamentos.Api.Features.Catalogo;
 
 public record ServicoRequest(
     Guid CategoriaId, string Nome, string? Descricao,
-    decimal PrecoMinimo, decimal PrecoMaximo, int TempoEstimadoMin);
+    decimal PrecoMinimo, decimal PrecoMaximo);
 
 public record ServicoResponse(
     Guid Id, Guid CategoriaId, string CategoriaNome, string Nome, string? Descricao,
-    decimal PrecoMinimo, decimal PrecoMaximo, int TempoEstimadoMin, bool Ativo);
+    decimal PrecoMinimo, decimal PrecoMaximo, bool Ativo);
 
 public static class ServicosEndpoints
 {
@@ -64,7 +64,7 @@ public static class ServicosEndpoints
         ServicoRequest request, AppDbContext db, IOficinaAtual oficinaAtual, CancellationToken ct)
     {
         var servico = new Servico(oficinaAtual.IdObrigatorio(), request.CategoriaId, request.Nome, request.Descricao,
-            request.PrecoMinimo, request.PrecoMaximo, request.TempoEstimadoMin);
+            request.PrecoMinimo, request.PrecoMaximo);
 
         if (await Validar(db, servico, ct) is { } problema)
             return problema;
@@ -84,7 +84,7 @@ public static class ServicosEndpoints
             return Problemas.NaoEncontrado("Serviço não encontrado.");
 
         servico.Atualizar(request.CategoriaId, request.Nome, request.Descricao,
-            request.PrecoMinimo, request.PrecoMaximo, request.TempoEstimadoMin);
+            request.PrecoMinimo, request.PrecoMaximo);
 
         if (await Validar(db, servico, ct) is { } problema)
             return problema;
@@ -130,5 +130,5 @@ public static class ServicosEndpoints
         join c in db.Categorias on s.CategoriaId equals c.Id
         orderby c.Nome, s.Nome
         select new ServicoResponse(s.Id, s.CategoriaId, c.Nome, s.Nome, s.Descricao,
-            s.PrecoMinimo, s.PrecoMaximo, s.TempoEstimadoMin, s.Ativo);
+            s.PrecoMinimo, s.PrecoMaximo, s.Ativo);
 }

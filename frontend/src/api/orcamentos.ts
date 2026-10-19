@@ -13,7 +13,6 @@ export interface ItemDoOrcamento {
   valorUnitario: number
   ajuste: number | null
   total: number
-  tempoEstimadoMin: number
   observacaoEstado: string | null
 }
 
@@ -34,7 +33,6 @@ export interface Orcamento {
   descontoValor: number
   valorDoDesconto: number
   total: number
-  tempoEstimadoTotalMin: number
   validade: string // "2026-10-26"
   observacoes: string | null
   criadoEm: string
@@ -62,7 +60,6 @@ export interface ItemParaSalvar {
   descricao?: string
   quantidade: number
   valorUnitario: number
-  tempoEstimadoMin?: number
   observacaoEstado?: string
 }
 

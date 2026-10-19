@@ -10,7 +10,6 @@ import { AlertaDeErro, Campo, classeDoBotaoPrincipal, classeDoBotaoSecundario, c
 import {
   formatarData,
   formatarDecimal,
-  formatarDuracao,
   formatarFaixa,
   formatarMoeda,
   formatarPlaca,
@@ -32,7 +31,6 @@ const esquemaDoItem = z.object({
   descricao: z.string().trim().min(1, 'Descreva o item.').max(150, 'Máximo de 150 caracteres.'),
   quantidade: z.number().int().min(1, 'Mínimo 1.'),
   valor: valorEmReais('Valor inválido.'),
-  tempoEstimadoMin: z.number().int().min(0),
   precoCatalogo: z.number().nullable(),
   observacao: z.string().trim().max(300, 'Máximo de 300 caracteres.'),
 })
@@ -63,7 +61,7 @@ type Valores = z.infer<typeof esquema>
 type ItemDoFormulario = Valores['itens'][number]
 
 function paraCalculo(itens: ItemDoFormulario[]) {
-  return itens.map((i) => ({ quantidade: i.quantidade, valorUnitario: lerValorEmReais(i.valor) ?? 0, tempoEstimadoMin: i.tempoEstimadoMin }))
+  return itens.map((i) => ({ quantidade: i.quantidade, valorUnitario: lerValorEmReais(i.valor) ?? 0 }))
 }
 
 /** Orçamento da API → valores do formulário. Também usado depois de salvar (os itens novos ganham id). */
@@ -77,7 +75,6 @@ function paraValores(o?: Orcamento): Valores {
       descricao: i.descricao,
       quantidade: i.quantidade,
       valor: formatarDecimal(i.valorUnitario),
-      tempoEstimadoMin: i.tempoEstimadoMin,
       precoCatalogo: i.precoCatalogo,
       observacao: i.observacaoEstado ?? '',
     })),
@@ -98,7 +95,6 @@ function paraApi(v: Valores, validadeOriginal?: string): OrcamentoParaSalvar {
       descricao: i.descricao,
       quantidade: i.quantidade,
       valorUnitario: lerValorEmReais(i.valor)!,
-      tempoEstimadoMin: i.tempoEstimadoMin,
       observacaoEstado: i.observacao || undefined,
     })),
     descontoTipo: v.descontoTipo,
@@ -178,7 +174,6 @@ export function FormularioDoOrcamento({ orcamento, aoSalvar, aoMudarPendencia }:
         descricao: s.nome,
         quantidade: 1,
         valor: formatarDecimal(s.precoMinimo), // entra pelo mínimo da faixa
-        tempoEstimadoMin: s.tempoEstimadoMin,
         precoCatalogo: s.precoMinimo,
         observacao: '',
       })
@@ -257,7 +252,7 @@ export function FormularioDoOrcamento({ orcamento, aoSalvar, aoMudarPendencia }:
           </button>
           <button
             type="button"
-            onClick={() => append({ descricao: '', quantidade: 1, valor: '', tempoEstimadoMin: 0, precoCatalogo: null, observacao: '' })}
+            onClick={() => append({ descricao: '', quantidade: 1, valor: '', precoCatalogo: null, observacao: '' })}
             className={classeDoBotaoSecundario}
           >
             <PenLine className="size-5" aria-hidden /> Item avulso
@@ -309,10 +304,11 @@ export function FormularioDoOrcamento({ orcamento, aoSalvar, aoMudarPendencia }:
       <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] md:bottom-0 md:left-60">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs text-slate-500">
-              {totais.desconto > 0 && <>Subtotal {formatarMoeda(totais.subtotal)} − {formatarMoeda(totais.desconto)} · </>}
-              {totais.tempoTotalMin > 0 && <>Prazo ~{formatarDuracao(totais.tempoTotalMin)}</>}
-            </p>
+            {totais.desconto > 0 && (
+              <p className="truncate text-xs text-slate-500">
+                Subtotal {formatarMoeda(totais.subtotal)} − {formatarMoeda(totais.desconto)}
+              </p>
+            )}
             <p className="text-2xl font-bold" aria-live="polite">{formatarMoeda(totais.total)}</p>
           </div>
           <button type="submit" disabled={salvar.isPending || (!!orcamento && !isDirty)} className={`${classeDoBotaoPrincipal} shrink-0 px-6`}>
@@ -461,7 +457,6 @@ export function ResumoDoOrcamento({ orcamento: o }: { orcamento: Orcamento }) {
           </>
         )}
         <div className="flex justify-between text-lg font-bold"><dt>Total</dt><dd>{formatarMoeda(o.total)}</dd></div>
-        <div className="flex justify-between"><dt className="text-slate-500">Prazo estimado</dt><dd>{formatarDuracao(o.tempoEstimadoTotalMin)}</dd></div>
         <div className="flex justify-between"><dt className="text-slate-500">Válido até</dt><dd>{formatarData(o.validade)}</dd></div>
       </dl>
       {o.observacoes && <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm whitespace-pre-line">{o.observacoes}</p>}
