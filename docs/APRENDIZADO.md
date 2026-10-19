@@ -1220,3 +1220,74 @@ Todos os serviços passam pelo construtor do Domínio, que valida cada um. Só n
 1. Rodei antes respondendo **"n"**, para conferir o resumo: oficina "CJ Estética Automotiva", 5 categorias e 36 serviços novos, nada existente.
 2. Depois rodei respondendo **"s"**: "Catálogo importado."
 3. Na conferência, rodei de novo: "Nada a importar." (36 já existiam).
+
+## Passo 16 — API de clientes e veículos
+
+### Agregado: o Cliente é a "porta de entrada" dos seus veículos
+Um **agregado** é um grupo de objetos que muda junto, com uma **raiz** que garante as regras do conjunto. Aqui, a raiz é o `Cliente`, e os `Veiculo`s pertencem a ele:
+```csharp
+private readonly List<Veiculo> _veiculos = [];
+public IReadOnlyCollection<Veiculo> Veiculos => _veiculos.AsReadOnly(); // por fora, só leitura
+
+public Veiculo AdicionarVeiculo(string placa, string modelo) { ... }      // valida e adiciona
+public void AtualizarVeiculo(Guid veiculoId, string placa, string modelo) { ... }
+public void RemoverVeiculo(Guid veiculoId) { ... }
+```
+- **Ninguém faz `cliente.Veiculos.Add(...)`**, porque a lista é só leitura. A única forma de adicionar um veículo é `AdicionarVeiculo`, que aplica as regras, como "o mesmo cliente não tem a mesma placa duas vezes".
+- **O construtor do `Veiculo` é `internal`**: só o próprio projeto Domínio (ou seja, o `Cliente`) cria veículos.
+- **No banco, o EF grava o agregado inteiro**: `db.Clientes.Add(cliente)` já insere os veículos. `HasField("_veiculos")` diz ao EF para ler e gravar direto no campo privado.
+- **Excluir o cliente exclui os veículos** (`DeleteBehavior.Cascade`). Isso atende à LGPD do PROJETO.md: dá para apagar tudo de uma pessoa.
+
+### Normalizar na entrada: placa e WhatsApp
+Quem digita no pátio escreve de qualquer jeito. O Domínio **normaliza** antes de guardar:
+
+| Digitado | Guardado |
+|---|---|
+| `abc-1234`, `ABC 1234` | `ABC1234` (placa antiga) |
+| `abc1d23` | `ABC1D23` (Mercosul) |
+| `(11) 99999-8888`, `+55 11 99999-8888` | `5511999998888` |
+| `21 3333-4444` (fixo) | `552133334444` |
+
+- **Placa:** a regra é 3 letras, 1 número, 1 número **ou** letra, e 2 números. É a 5ª posição que diferencia a placa antiga da Mercosul. Usamos `[GeneratedRegex]`, que faz o .NET gerar o código da expressão regular na compilação.
+- **WhatsApp:** guardado como o link `wa.me` exige: só números, com o 55. Um número que começa com "+" precisa ser +55. Celular com 9 dígitos precisa começar com 9; foi um teste que pegou o caso "+1 415..." (EUA) sendo aceito como um número brasileiro.
+- **A busca usa as mesmas funções** (`Veiculo.NormalizarPlaca`, `Cliente.NormalizarWhatsApp`), então "abc-1d" acha "ABC1D23".
+
+### Regras: no Domínio ou no endpoint?
+| Regra | Onde | Por quê |
+|---|---|---|
+| Placa válida, WhatsApp válido, nome obrigatório | Domínio | Não depende de mais nada |
+| Mesma placa duas vezes **no mesmo cliente** | Domínio (`Cliente`) | O cliente conhece os próprios veículos |
+| Mesma placa em **outro** cliente da oficina | Endpoint (`PlacaEmUso`) + índice único no banco | Precisa consultar o banco |
+
+A mensagem do conflito diz **de quem** é a placa ("A placa ABC1D23 já está cadastrada para João da Silva."). No pátio, isso ajuda a achar o cadastro certo em vez de criar outro.
+
+### Uma caixa de busca, três campos
+`GET /api/clientes?busca=...` procura ao mesmo tempo:
+- **no nome, sem diferenciar acentos:** `EF.Functions.Unaccent` usa a extensão `unaccent` do PostgreSQL, ativada pela migration (`HasPostgresExtension("unaccent")`). "joao" acha "João";
+- **na placa:** "abc-1d" vira "ABC1D" e acha "ABC1D23";
+- **no WhatsApp:** a partir de 4 números.
+
+**Por que a busca de clientes roda no servidor, e a de serviços não (passo 14):** serviços são algumas dezenas e quase não mudam. Clientes **crescem sem parar**: em um ano, podem ser centenas. Por isso, a API devolve **no máximo 50** e filtra no banco. Essa é a "paginação" que tinha ficado para depois, na forma mais simples: um limite.
+
+### Pegadinha: o EF tentou um UPDATE num veículo novo
+Nossos ids nascem no C# (`Guid.CreateVersion7()`). Quando um veículo novo é adicionado a um cliente **já salvo**, o EF encontra um objeto novo na lista, mas com o id preenchido. Por padrão, ele interpreta "id preenchido" como "já existe no banco" e manda um `UPDATE`, que não atualiza nenhuma linha.
+
+**Prova:** tirei a configuração temporariamente e tentei adicionar um veículo. Resultado: **erro 500**, com `DbUpdateConcurrencyException: The database operation was expected to affect 1 row(s), but actually affected 0 row(s)`.
+
+**Correção:** `builder.Property(v => v.Id).ValueGeneratedNever()`, que diz ao EF: "o id vem do código, não do banco; objeto novo na lista é INSERT".
+
+### Testes feitos (script Python, duas oficinas)
+**44 testes de unidade** (18 novos) e **28 verificações na API**, todas certas:
+
+| Caso | Resultado |
+|---|---|
+| Criar cliente já com veículo / sem veículo (telefone fixo) | ✅ 201, WhatsApp e placa normalizados |
+| WhatsApp sem DDD / placa inválida | ✅ 400 com a mensagem da regra |
+| Placa que já é de outro cliente (criar, adicionar, alterar) | ✅ 409 "...cadastrada para João da Silva." |
+| Cliente com conflito de placa não fica gravado pela metade | ✅ |
+| Busca "joao", "SOUZA", "abc-1d", "3333" | ✅ cada uma acha o cliente certo |
+| Mesma placa no mesmo cliente | ✅ 400 |
+| Alterar só o modelo, mantendo a placa | ✅ (não conflita consigo mesmo) |
+| **Oficina B não vê, não busca, não altera e não exclui nada de A** | ✅ |
+| **B pode cadastrar a mesma placa** (outra oficina) | ✅ 201 |
+| Remover veículo; excluir cliente leva os veículos junto | ✅ a placa fica livre de novo |

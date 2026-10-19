@@ -77,3 +77,32 @@ Authorization: Bearer {{login.response.body.token}}
 ### Desativa o serviço criado acima
 POST {{baseUrl}}/api/servicos/{{servico.response.body.id}}/desativar
 Authorization: Bearer {{login.response.body.token}}
+
+# ===== Clientes e veículos (rode o login antes) =====
+
+### Cria um cliente já com o primeiro veículo
+# @name cliente
+POST {{baseUrl}}/api/clientes
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "nome": "Cliente de Teste",
+  "whatsApp": "(11) 99999-8888",
+  "veiculos": [{ "placa": "abc-1d23", "modelo": "Civic 2019" }]
+}
+
+### Busca por nome (sem acento), placa ou WhatsApp
+GET {{baseUrl}}/api/clientes?busca=abc1d
+Authorization: Bearer {{login.response.body.token}}
+
+### Adiciona outro veículo ao cliente
+POST {{baseUrl}}/api/clientes/{{cliente.response.body.id}}/veiculos
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{ "placa": "XYZ9876", "modelo": "Onix" }
+
+### Exclui o cliente de teste (e os veículos dele)
+DELETE {{baseUrl}}/api/clientes/{{cliente.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}

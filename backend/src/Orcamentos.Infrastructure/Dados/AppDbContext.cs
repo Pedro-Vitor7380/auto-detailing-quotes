@@ -12,12 +12,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IOficinaAtual 
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Categoria> Categorias => Set<Categoria>();
     public DbSet<Servico> Servicos => Set<Servico>();
+    public DbSet<Cliente> Clientes => Set<Cliente>();
+    public DbSet<Veiculo> Veiculos => Set<Veiculo>();
 
     // Lida de novo a cada consulta: o EF trata esta propriedade como um parâmetro, não como um valor fixo.
     private Guid? OficinaIdAtual => oficinaAtual.Id;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // unaccent: função do PostgreSQL que tira acentos. Permite buscar "joao" e achar "João".
+        modelBuilder.HasPostgresExtension("unaccent");
+
         // Aplica todas as classes IEntityTypeConfiguration da pasta Configuracoes.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
@@ -27,5 +32,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IOficinaAtual 
         // Usuario fica de fora de propósito: o login procura o e-mail ANTES de saber a oficina.
         modelBuilder.Entity<Categoria>().HasQueryFilter(c => c.OficinaId == OficinaIdAtual);
         modelBuilder.Entity<Servico>().HasQueryFilter(s => s.OficinaId == OficinaIdAtual);
+        modelBuilder.Entity<Cliente>().HasQueryFilter(c => c.OficinaId == OficinaIdAtual);
+        modelBuilder.Entity<Veiculo>().HasQueryFilter(v => v.OficinaId == OficinaIdAtual);
     }
 }
