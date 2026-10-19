@@ -1,6 +1,7 @@
 # Catálogo de serviços (rascunho)
 
-> Lista real enviada pelo dono em 19/10/2026. Será a **carga inicial** do catálogo na semana 2.
+> Lista real enviada pelo dono em 19/10/2026. É a **carga inicial** do catálogo, importada em 19/10/2026 (passo 15).
+> A versão que o programa lê é `docs/catalogo-inicial.json` ("1 dia" = 8 h de trabalho). Depois da carga, o catálogo é editado **pelo app**; este arquivo não é mais atualizado.
 > Valores com **\*** são **estimativas** feitas a partir das faixas informadas. Revise antes de usar com clientes.
 > Os **tempos médios** também são estimativas (\*) e servem para calcular o prazo de execução no PDF. Os tempos de vitrificação e PPF não incluem o polimento prévio, que entra como item separado.
 > **Provisório:** a lista definitiva virá do pessoal da oficina, que executa os serviços no dia a dia. O catálogo será editável pelo próprio app, então ajustar depois não exige mudar código.

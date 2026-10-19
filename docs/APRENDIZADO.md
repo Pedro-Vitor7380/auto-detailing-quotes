@@ -1175,3 +1175,48 @@ Feitos com 360 px de largura, que é um celular pequeno, e depois com 1280 px.
 | Categoria com serviço: excluir desabilitado; contagem "1 serviço" | ✅ |
 | Renomear categoria aparece na lista de serviços | ✅ |
 | Depois de sair, nada do catálogo fica na tela | ✅ |
+
+## Passo 15 — Carga inicial do catálogo (`importar-catalogo`)
+
+### O que foi feito
+- **`docs/catalogo-inicial.json`**: os 36 serviços do `catalogo-servicos.md`, num formato que um programa lê com segurança. Ler as tabelas de Markdown direto no C# seria frágil: um `|` a mais quebraria tudo. A conversão foi feita uma vez, por script. "1 dia" virou **8 h de trabalho** (480 min), e "1 dia e meio" virou 12 h.
+- **`importar-catalogo`**: o comando lê o arquivo, mostra um **resumo** (quantas categorias e quantos serviços são novos) e só grava depois de você responder **"s"**.
+
+```bash
+cd backend
+dotnet run --project src/Orcamentos.Api -- importar-catalogo docs/catalogo-inicial.json
+```
+
+### Rodar de novo não duplica nada (idempotência)
+Um comando é **idempotente** quando rodá-lo 1 vez ou 10 vezes dá o mesmo resultado. Este compara pelo **nome**, sem diferenciar maiúsculas:
+- Uma categoria ou um serviço que **já existe** é **mantido como está**. Ele não é sobrescrito, porque alguém pode ter ajustado o preço pelo app depois da primeira carga.
+- O que **falta** é criado. Se um serviço for apagado do banco, rodar o comando de novo o recria.
+
+### Desligar o filtro global, com cuidado (`IgnoreQueryFilters`)
+O filtro do passo 13 descobre a oficina **pelo token**. Um comando de terminal não tem token, então o filtro esconderia **tudo**: o comando acharia que não existe nenhum serviço e duplicaria o catálogo inteiro.
+
+A solução é `IgnoreQueryFilters()`, que desliga o filtro **naquela consulta**, seguida de um `Where(s => s.OficinaId == oficina.Id)` escrito à mão. **Sempre que o filtro for desligado, o filtro manual tem que vir junto.** Sem ele, a consulta enxergaria os dados de todas as oficinas.
+
+### Tudo ou nada (transação)
+Todos os serviços passam pelo construtor do Domínio, que valida cada um. Só no final acontece **um único** `SaveChanges`, que é uma transação. Se o 30º serviço tiver um preço inválido, os 29 anteriores também **não** são gravados. Isso evita um catálogo "pela metade", difícil de consertar.
+
+### Pegadinhas deste passo
+1. **O caminho relativo do arquivo não era encontrado.** O `dotnet run --project src/Orcamentos.Api` executa o programa **dentro da pasta do projeto**, e não na pasta onde o comando foi digitado. Então `../docs/...` apontava para `src/docs/...`. **Correção:** se não achar na pasta atual, o comando procura nas pastas acima. O arquivo que ele usou aparece no resumo ("Arquivo: C:\...").
+2. **O banco recusou uma alteração de teste.** Para testar a regra "não sobrescrever", tentei mudar à mão o preço mínimo da lavagem para R$ 199, acima do máximo de R$ 180. A *check constraint* `ck_servicos_faixa_de_preco` barrou a alteração, mesmo vinda de um SQL escrito direto no banco. É a "última linha de defesa" do passo 13 funcionando.
+
+### Testes feitos (banco local)
+| Caso | Resultado |
+|---|---|
+| Arquivo que não existe | ✅ mensagem com o uso correto, código 1 |
+| Responder "n" | ✅ "Cancelado. Nada foi gravado." (0 serviços no banco) |
+| Responder "s" | ✅ 5 categorias e 36 serviços |
+| Rodar de novo | ✅ "Nada a importar." (36 já existiam) |
+| Serviço editado (R$ 150) + serviço apagado, rodar de novo | ✅ o editado continua com R$ 150; o apagado foi recriado (1 novo, 35 mantidos) |
+| Arquivo com faixa invertida e uma categoria nova | ✅ erro com a mensagem da regra; **a categoria nova também não foi gravada** |
+| JSON quebrado | ✅ erro, nada gravado |
+| API depois da carga | ✅ devolve os 36 serviços para o usuário da oficina (o `OficinaId` foi gravado certo) |
+
+### Em produção
+1. Rodei antes respondendo **"n"**, para conferir o resumo: oficina "CJ Estética Automotiva", 5 categorias e 36 serviços novos, nada existente.
+2. Depois rodei respondendo **"s"**: "Catálogo importado."
+3. Na conferência, rodei de novo: "Nada a importar." (36 já existiam).
