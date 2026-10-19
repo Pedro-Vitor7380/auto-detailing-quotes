@@ -1023,3 +1023,155 @@ Os testes de senha usaram um **usuário temporário**, apagado no final. O seu u
   3. **Não dá para saber quem fez o quê.** Com um login só, o app não distingue os dois funcionários. Se isso importar um dia (ex.: "quem fez esse orçamento?"), o caminho é **um usuário por pessoa**. O banco já suporta vários usuários por oficina (`Usuario.OficinaId`), então seria basicamente rodar o `criar-usuario` de novo.
   4. **Os dois editando o mesmo orçamento ao mesmo tempo:** quem salvar por último vence. Com duas pessoas, cada uma cuidando de um carro, o risco é baixo. Por isso não vamos tratar isso no MVP.
 - **O e-mail do login** pode ser um e-mail da oficina, em vez do seu pessoal. Se quiser, dá para criar esse usuário com o `criar-usuario`.
+
+## Passo 13 — API do catálogo (categorias e serviços)
+
+### O que foi feito
+| Camada | Arquivos | O que faz |
+|---|---|---|
+| Domínio | `Entidades/Categoria.cs`, `Entidades/Servico.cs` | As regras: nome obrigatório, faixa de preço válida, tempo maior que zero |
+| Testes | `CategoriaTests.cs`, `ServicoTests.cs` | 15 testes novos (26 no total) |
+| Infraestrutura | `Configuracoes/*`, migration `Catalogo`, `IOficinaAtual.cs`, `AppDbContext.cs` | Tabelas, índices, a regra de preço no banco e o **filtro por oficina** |
+| API | `Features/Catalogo/*Endpoints.cs`, `Comum/TratadorDeErros.cs`, `Comum/Problemas.cs` | Os endpoints e as respostas de erro |
+
+### Os endpoints
+| Método e caminho | O que faz |
+|---|---|
+| `GET /api/categorias` | Lista em ordem alfabética, com a quantidade de serviços de cada uma |
+| `POST /api/categorias` | Cria (nome repetido → **409**) |
+| `PUT /api/categorias/{id}` | Renomeia |
+| `DELETE /api/categorias/{id}` | Exclui, mas só se não tiver serviços (**409** com a explicação) |
+| `GET /api/servicos?busca=&categoriaId=&incluirInativos=` | Lista, ordenado por categoria e nome |
+| `GET /api/servicos/{id}` | Um serviço |
+| `POST /api/servicos` / `PUT /api/servicos/{id}` | Cria / altera |
+| `POST /api/servicos/{id}/ativar` e `/desativar` | Liga e desliga o serviço nos orçamentos |
+
+**Por que serviço não tem `DELETE`:** na semana 3, cada item de orçamento vai apontar para um serviço. Apagar o serviço quebraria os orçamentos antigos. **Desativar** tira o serviço da lista sem perder o histórico. Essa técnica se chama *soft delete* (exclusão lógica). Categoria pode ser excluída porque nada além dos serviços aponta para ela.
+
+### O filtro global: "cada oficina só vê os seus dados"
+Este era o ponto adiado desde o passo 7. Funciona em três peças:
+
+1. **O token sabe a oficina.** Desde o passo 7, o JWT leva a claim `oficina_id`.
+2. **`IOficinaAtual`** (Infraestrutura) é uma interface que responde "qual é a oficina desta requisição?". A API a implementa em `OficinaAtualDoToken`, lendo a claim pelo `IHttpContextAccessor`. A Infraestrutura não sabe nada de HTTP: ela só conhece a interface. Isso é **inversão de dependência**: a camada de dentro define o que precisa, e a de fora entrega.
+3. **`HasQueryFilter`** no `AppDbContext`:
+   ```csharp
+   modelBuilder.Entity<Servico>().HasQueryFilter(s => s.OficinaId == OficinaIdAtual);
+   ```
+   A partir disso, **toda** consulta em `Servicos` recebe `WHERE oficina_id = @oficina` automaticamente, até as que esquecermos de filtrar.
+
+O efeito é que **um dado de outra oficina simplesmente "não existe"** para quem está logado. Nos endpoints, nenhuma consulta filtra por oficina à mão. Se alguém tentar ler ou alterar um id de outra oficina, o `FirstOrDefault` devolve `null` e a resposta é **404**. Respondemos 404, e não 403 ("proibido"), para não confirmar que aquele id existe.
+
+Cuidados que vêm junto:
+- **Sem login, o filtro não vê nada** (`OficinaId == null` nunca é verdade). Se falhar, falha "fechado", que é o lado seguro.
+- **`Usuario` fica de fora de propósito**, porque o login procura o e-mail **antes** de saber a oficina.
+- **Ao criar um serviço, a categoria é conferida** com uma consulta filtrada. Sem isso, a oficina B poderia pendurar um serviço na categoria da oficina A só sabendo o id. Esse teste está na tabela abaixo.
+- **Cada entidade nova** (Cliente, Orçamento...) **precisa da sua linha** de `HasQueryFilter`. Isso está comentado no código.
+
+### Regras em dois lugares: Domínio e banco
+A regra "preço máximo ≥ mínimo" existe no `Servico.Atualizar` **e** numa *check constraint* do PostgreSQL (`ck_servicos_faixa_de_preco`). O Domínio dá a **mensagem amigável**; o banco é a **última linha de defesa**, caso algum código futuro grave sem passar pelo Domínio. O mesmo vale para os índices únicos de nome, que barram duplicatas mesmo que duas requisições cheguem juntas.
+
+Já as regras que **precisam consultar o banco** (nome repetido, categoria existente) ficam no endpoint, porque o Domínio não acessa o banco.
+
+### Dinheiro: `decimal` e `numeric(10,2)`
+- Em C#, **`decimal`**, nunca `double`. O `double` guarda em binário e erra contas simples: `0.1 + 0.2` dá `0.30000000000000004`. O `decimal` guarda em base 10, exato para centavos.
+- No banco, **`numeric(10,2)`**: exato, com 2 casas, até R$ 99.999.999,99.
+- **Arredondamento:** o `decimal.Round` do .NET usa, por padrão, o "arredondamento bancário" (o meio vai para o número **par**, então 10,005 vira 10,00). Para preço, o esperado é o "da escola" (10,005 vira 10,01), por isso usamos `MidpointRounding.AwayFromZero`. Um teste garante isso.
+
+### Tratador global de erros (`IExceptionHandler`)
+Antes, um `RegraDeNegocioException` que escapasse virava **500** ("erro interno"). Agora o `TratadorDeErros` intercepta e responde **400** com a mensagem da regra, no mesmo formato ProblemDetails do login:
+```json
+{ "status": 400, "title": "Dados inválidos", "detail": "O preço máximo não pode ser menor que o mínimo." }
+```
+Por isso os endpoints não têm `try/catch`: o Domínio lança, o tratador traduz, e o app mostra o `detail` ao usuário. O `app.UseExceptionHandler()` é o **primeiro** middleware do pipeline, para capturar erros de tudo o que vem depois.
+
+### Pegadinhas deste passo
+1. **`OrderBy` depois do `select new ServicoResponse(...)` dá erro.** O EF precisa traduzir a consulta inteira para SQL. Depois que o resultado vira um `record` montado pelo construtor, ele não sabe mais qual coluna corresponde a `CategoriaNome`. A correção foi ordenar **antes** do `select` (`orderby c.Nome, s.Nome`).
+2. **JSON quebrado respondia 500.** Em `Development`, o ASP.NET **lança** um `BadHttpRequestException` quando não consegue ler o corpo, para aparecer no log; em produção, ele já responderia 400 sozinho. O tratador agora trata os dois casos do mesmo jeito.
+3. **O `curl` do Git Bash enviou "Películas" com a codificação do Windows**, não em UTF-8, e a API recusou o texto. Não era um bug da API. O teste passou a ser feito em Python, que sempre envia UTF-8.
+
+### Testes feitos (script Python, contra a API local)
+Para provar o isolamento, o teste criou **duas oficinas** com um usuário temporário em cada uma. Tudo foi apagado no final.
+
+| Caso | Resultado |
+|---|---|
+| Sem token | ✅ 401 |
+| Criar categoria com acento / repetida em minúsculas / sem nome | ✅ 201 / 409 / 400 |
+| JSON quebrado / id em formato errado | ✅ 400 / 400 |
+| Criar serviço / faixa invertida / nome repetido | ✅ 201 / 400 / 409 |
+| Busca "INSUL" acha "Insulfilm…" (sem diferenciar maiúsculas) | ✅ |
+| **Oficina B lista categorias e serviços** | ✅ listas vazias |
+| **B lê, renomeia ou desativa algo de A** | ✅ 404 |
+| **B cria serviço na categoria de A** | ✅ 400 "Categoria não encontrada." |
+| Excluir categoria com serviço | ✅ 409 com a explicação |
+| Desativar: some da lista padrão e aparece com `incluirInativos=true` | ✅ |
+| Atualizar com preço 850,555 | ✅ gravado 850,56 |
+
+### Ficou para depois
+- **Busca sem acento** ("higienizacao" achar "Higienização"). Precisa da extensão `unaccent` do PostgreSQL. Com 36 serviços e filtro por categoria, não é urgente.
+- **Paginação:** o plano citava, mas 36 serviços cabem numa resposta só (alguns KB). Paginar agora seria complexidade sem benefício. Entra quando alguma lista crescer, provavelmente a de orçamentos.
+
+### Como o passo 13 foi testado (sem o seu login)
+O teste pelo VS Code não funcionou do seu lado, então foi feito por script, em duas etapas:
+1. **O próprio `Orcamentos.Api.http`**, executado por um script que lê o arquivo e roda as requisições em ordem, substituindo `{{baseUrl}}`, `{{login.response.body.token}}` etc., como o REST Client faria. As 10 requisições responderam o esperado (200, 201, 400, 204...). Isso também prova que o arquivo está correto para você usar depois.
+2. **O teste de isolamento**, com duas oficinas: 23 de 23 verificações certas. Na primeira tentativa, uma verificação falhou porque sobrou no banco um serviço da etapa 1, desativado pelo `.http`. Era um problema do teste, que não começava com o banco limpo. Com o banco limpo, tudo passou.
+
+Em todos os testes, o login foi feito com **usuários temporários**, criados com `criar-usuario` e apagados no final. A sua senha nunca é usada.
+
+## Passo 14 — Telas do catálogo
+
+### O que foi feito
+| Tela | Rota | O que faz |
+|---|---|---|
+| Lista de serviços | `/servicos` | Busca, filtro por categoria, "mostrar desativados", agrupado por categoria |
+| Novo / editar serviço | `/servicos/novo`, `/servicos/:id` | Formulário com validação; na edição, botão desativar/reativar |
+| Categorias | `/servicos/categorias` | Criar, renomear e excluir (excluir só sem serviços) |
+
+### TanStack Query: o "cache" das chamadas à API
+Até o passo 9, cada tela chamava a API "na mão" com `useState` + `useEffect`, e precisava cuidar sozinha de carregando, erro e dados. O **TanStack Query** faz isso por nós:
+```tsx
+const servicos = useQuery({ queryKey: ['servicos'], queryFn: apiCatalogo.listarServicos })
+// servicos.isPending, servicos.isError, servicos.data
+```
+- **`queryKey`** é o nome da gaveta onde a resposta fica guardada. Duas telas que pedem `['categorias']` usam a **mesma** resposta, sem chamar a API duas vezes.
+- **`staleTime: 30s`**: durante 30 segundos, o dado é "fresco". Ir para outra tela e voltar mostra a lista **na hora**, sem esperar a API. Isso ajuda muito com a API dormindo no Render.
+- **`useMutation`** é para o que **altera** dados (criar, salvar, desativar). Ele dá `isPending` (para o botão mostrar "Salvando...") e `error` (para mostrar a mensagem da API).
+- **`invalidateQueries`**: depois de salvar, avisa que a gaveta `['servicos']` está desatualizada, e ela é buscada de novo.
+- **`retry`**: falha de rede ou do servidor tenta de novo até 2 vezes; erro 4xx (ex.: 409, nome repetido) não, porque repetir não muda o resultado.
+- **Ao sair, o cache é apagado** (`queryClient.clear()`). Sem isso, outra conta logada no mesmo celular veria, por um instante, os dados da anterior.
+
+### React Hook Form + Zod: formulários com validação
+- **Zod** descreve as regras num **esquema**: `nome: z.string().trim().min(1, 'Informe o nome do serviço.')`. Regras que envolvem dois campos, como "máximo ≥ mínimo", ficam num `.refine` do objeto, com `path` dizendo embaixo de qual campo o erro aparece.
+- **React Hook Form** guarda valores e erros sem um `useState` por campo. `register('nome')` liga o campo ao formulário, e `zodResolver(esquema)` faz o formulário usar o Zod para validar.
+- **As mesmas regras ficam no front e na API, de propósito.** No front, elas existem para o usuário ver o erro **na hora**, embaixo do campo, sem esperar a API. Na API (Domínio), elas são a **garantia**, porque o front pode ser burlado (qualquer pessoa pode chamar a API direto). Erros que só o servidor sabe, como "nome repetido", aparecem na caixa vermelha acima do botão.
+
+### Decisões de interface para o pátio
+- **Busca no próprio celular:** a lista inteira vem numa chamada só, e o filtro roda no aparelho. Com dezenas de serviços, o resultado é instantâneo a cada letra, sem depender da internet.
+- **Busca sem acento:** `normalize('NFD')` separa a letra do acento ("ç" vira "c" + "¸"), e a expressão `\p{Diacritic}` remove os acentos. Assim, "vitrificacao" acha "Vitrificação". Isso resolveu no front o item "busca sem acento" que tinha ficado para depois no passo 13.
+- **Preço em reais do jeito brasileiro:** o campo aceita "1.500", "1.500,00", "150" e "R$ 80" (`lerValorEmReais`). `inputMode="decimal"` abre o teclado numérico no celular. **Máximo vazio = preço fixo.**
+- **Tempo em horas e minutos**, e não só em minutos: é mais fácil digitar "16 h" do que "960". A API continua recebendo minutos.
+- **Excluir categoria com serviços** já vem desabilitado na tela. A API também recusaria, mas assim ninguém tenta à toa.
+- **Filtro por categoria** em "pílulas" que rolam para o lado no celular, em vez de quebrar em várias linhas.
+
+### Pegadinhas deste passo
+1. **`@hookform/resolvers` 6.0 não instalava** (conflito de dependências opcionais, ERESOLVE). Usamos a **5.9**, que é estável e já suporta o Zod 4. Uma versão nova demais nem sempre é a melhor escolha.
+2. **O dado antigo aparecia por um instante.** Depois de desativar um serviço, a lista ainda o mostrava como ativo. O `invalidateQueries` só busca de novo as consultas **na tela agora**, e a lista não estava aberta. Ao voltar, ela mostrava o cache antigo até a busca nova terminar. **Correção:** `refetchType: 'all'`, que busca antes de navegar. O teste automático pegou isso.
+3. **O `Intl` usa espaço inseparável** (U+00A0) entre "R$" e o número, para o valor nunca quebrar de linha. Na tela não se nota diferença, mas uma comparação de texto no teste falhou por causa disso.
+
+### Testes feitos (Playwright, no Edge, com a API e o Vite rodando)
+Feitos com 360 px de largura, que é um celular pequeno, e depois com 1280 px.
+
+| Caso | Resultado |
+|---|---|
+| Catálogo vazio orienta a criar categoria primeiro | ✅ |
+| Criar 2 categorias / repetida (em minúsculas) mostra o erro da API | ✅ / ✅ |
+| Enviar o formulário vazio mostra os 4 erros embaixo dos campos | ✅ |
+| Máximo menor que o mínimo é barrado | ✅ |
+| Salvar volta para a lista com "R$ 1.500,00 a R$ 3.000,00 · 16 h" | ✅ |
+| Preço fixo mostra um valor só; 90 min vira "1 h 30" | ✅ |
+| Sem rolagem horizontal em 360 px | ✅ |
+| Busca "vitrificacao" (sem acento) / filtro por categoria | ✅ / ✅ |
+| Edição vem preenchida ("1.500,00", 16 h) e a alteração aparece na lista | ✅ |
+| Desativar some da lista; "Mostrar desativados" traz de volta | ✅ (depois da correção da pegadinha 2) |
+| Categoria com serviço: excluir desabilitado; contagem "1 serviço" | ✅ |
+| Renomear categoria aparece na lista de serviços | ✅ |
+| Depois de sair, nada do catálogo fica na tela | ✅ |

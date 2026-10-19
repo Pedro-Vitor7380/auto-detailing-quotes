@@ -22,6 +22,37 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.Categoria", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("nome");
+
+                    b.Property<Guid>("OficinaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("oficina_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_categorias");
+
+                    b.HasIndex("OficinaId", "Nome")
+                        .IsUnique()
+                        .HasDatabaseName("ix_categorias_oficina_id_nome");
+
+                    b.ToTable("categorias", (string)null);
+                });
+
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Oficina", b =>
                 {
                     b.Property<Guid>("Id")
@@ -63,6 +94,70 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .HasName("pk_oficinas");
 
                     b.ToTable("oficinas", (string)null);
+                });
+
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.Servico", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<Guid>("CategoriaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("categoria_id");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("descricao");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("nome");
+
+                    b.Property<Guid>("OficinaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("oficina_id");
+
+                    b.Property<decimal>("PrecoMaximo")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("preco_maximo");
+
+                    b.Property<decimal>("PrecoMinimo")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("preco_minimo");
+
+                    b.Property<int>("TempoEstimadoMin")
+                        .HasColumnType("integer")
+                        .HasColumnName("tempo_estimado_min");
+
+                    b.HasKey("Id")
+                        .HasName("pk_servicos");
+
+                    b.HasIndex("CategoriaId")
+                        .HasDatabaseName("ix_servicos_categoria_id");
+
+                    b.HasIndex("OficinaId", "Nome")
+                        .IsUnique()
+                        .HasDatabaseName("ix_servicos_oficina_id_nome");
+
+                    b.ToTable("servicos", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_servicos_faixa_de_preco", "preco_minimo >= 0 AND preco_maximo >= preco_minimo");
+                        });
                 });
 
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Usuario", b =>
@@ -108,6 +203,33 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .HasDatabaseName("ix_usuarios_oficina_id");
 
                     b.ToTable("usuarios", (string)null);
+                });
+
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.Categoria", b =>
+                {
+                    b.HasOne("Orcamentos.Domain.Entidades.Oficina", null)
+                        .WithMany()
+                        .HasForeignKey("OficinaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_categorias_oficinas_oficina_id");
+                });
+
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.Servico", b =>
+                {
+                    b.HasOne("Orcamentos.Domain.Entidades.Categoria", null)
+                        .WithMany()
+                        .HasForeignKey("CategoriaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_servicos_categorias_categoria_id");
+
+                    b.HasOne("Orcamentos.Domain.Entidades.Oficina", null)
+                        .WithMany()
+                        .HasForeignKey("OficinaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_servicos_oficinas_oficina_id");
                 });
 
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Usuario", b =>

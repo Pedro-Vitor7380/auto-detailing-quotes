@@ -6,14 +6,26 @@ namespace Orcamentos.Infrastructure.Dados;
 /// <summary>
 /// Representa uma sessão com o banco de dados. Cada DbSet vira uma tabela.
 /// </summary>
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options, IOficinaAtual oficinaAtual) : DbContext(options)
 {
     public DbSet<Oficina> Oficinas => Set<Oficina>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<Categoria> Categorias => Set<Categoria>();
+    public DbSet<Servico> Servicos => Set<Servico>();
+
+    // Lida de novo a cada consulta: o EF trata esta propriedade como um parâmetro, não como um valor fixo.
+    private Guid? OficinaIdAtual => oficinaAtual.Id;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Aplica todas as classes IEntityTypeConfiguration da pasta Configuracoes.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        // Filtro global: TODA consulta nestas tabelas ganha "WHERE oficina_id = <oficina do token>",
+        // sem precisar lembrar de escrever isso em cada endpoint. Sem usuário logado, não vê nada.
+        // Toda entidade de negócio nova (Cliente, Orçamento...) precisa de uma linha aqui.
+        // Usuario fica de fora de propósito: o login procura o e-mail ANTES de saber a oficina.
+        modelBuilder.Entity<Categoria>().HasQueryFilter(c => c.OficinaId == OficinaIdAtual);
+        modelBuilder.Entity<Servico>().HasQueryFilter(s => s.OficinaId == OficinaIdAtual);
     }
 }
