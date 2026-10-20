@@ -86,7 +86,10 @@ function LinhaDaCategoria({ categoria, aoMudar }: { categoria: Categoria; aoMuda
       await aoMudar()
     },
   })
-  const excluir = useMutation({ mutationFn: () => apiCatalogo.excluirCategoria(categoria.id), onSuccess: aoMudar })
+  const excluir = useMutation({
+    mutationFn: () => apiCatalogo.excluirCategoria(categoria.id, categoria.quantidadeDeServicos > 0),
+    onSuccess: aoMudar,
+  })
 
   const temServicos = categoria.quantidadeDeServicos > 0
   const botaoIcone = 'flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-40'
@@ -138,12 +141,17 @@ function LinhaDaCategoria({ categoria, aoMudar }: { categoria: Categoria; aoMuda
           </button>
           <button
             onClick={() => {
-              if (window.confirm(`Excluir a categoria "${categoria.nome}"?`)) excluir.mutate()
+              // Antes, o botão ficava desabilitado quando havia serviços, sem explicar nada (no celular não há
+              // "passar o mouse" para ver a dica): parecia quebrado. Agora a confirmação diz o que vai acontecer.
+              const pergunta = temServicos
+                ? `Excluir a categoria "${categoria.nome}" e os seus ${categoria.quantidadeDeServicos} serviço(s)?
+
+Serviços que já estão em orçamentos não podem ser excluídos.`
+                : `Excluir a categoria "${categoria.nome}"?`
+              if (window.confirm(pergunta)) excluir.mutate()
             }}
-            // Desabilitado já aqui: a API também recusaria (409), mas assim o usuário nem tenta.
-            disabled={temServicos || excluir.isPending}
+            disabled={excluir.isPending}
             aria-label={`Excluir ${categoria.nome}`}
-            title={temServicos ? 'Mova ou desative os serviços antes de excluir' : undefined}
             className={botaoIcone}
           >
             <Trash2 className="size-5" aria-hidden />

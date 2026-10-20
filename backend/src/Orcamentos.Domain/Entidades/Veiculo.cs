@@ -9,6 +9,8 @@ namespace Orcamentos.Domain.Entidades;
 public partial class Veiculo : EntidadeDaOficina
 {
     public const int ModeloTamanhoMaximo = 100;
+    public const int CorTamanhoMaximo = 40;
+    public const int PrimeiroAnoAceito = 1900; // o teto (ano atual + 1) é conferido no app, que sabe a data de hoje
 
     public Guid ClienteId { get; private set; }
 
@@ -17,17 +19,24 @@ public partial class Veiculo : EntidadeDaOficina
 
     public string Modelo { get; private set; } = null!;
 
+    /// <summary>Opcional. Ajuda a oficina a achar a tinta certa (pedido da equipe).</summary>
+    public string? Cor { get; private set; }
+
+    /// <summary>Opcional. Junto com a cor, ajuda a identificar a tinta de fábrica.</summary>
+    public int? AnoFabricacao { get; private set; }
+
     // internal: só o Cliente (mesmo projeto) cria veículos. Quem usa o Domínio passa sempre pelo Cliente.
-    internal Veiculo(Guid oficinaId, Guid clienteId, string placa, string modelo) : base(oficinaId)
+    internal Veiculo(Guid oficinaId, Guid clienteId, string placa, string modelo, string? cor, int? anoFabricacao)
+        : base(oficinaId)
     {
         ClienteId = clienteId;
-        Atualizar(placa, modelo);
+        Atualizar(placa, modelo, cor, anoFabricacao);
     }
 
     // Construtor vazio exigido pelo Entity Framework para recriar o objeto a partir do banco.
     private Veiculo() { }
 
-    internal void Atualizar(string placa, string modelo)
+    internal void Atualizar(string placa, string modelo, string? cor, int? anoFabricacao)
     {
         var placaNormalizada = NormalizarPlaca(placa);
 
@@ -38,8 +47,17 @@ public partial class Veiculo : EntidadeDaOficina
         if (modelo.Length > ModeloTamanhoMaximo)
             throw new RegraDeNegocioException($"O modelo pode ter no máximo {ModeloTamanhoMaximo} caracteres.");
 
+        cor = string.IsNullOrWhiteSpace(cor) ? null : cor.Trim();
+        if (cor?.Length > CorTamanhoMaximo)
+            throw new RegraDeNegocioException($"A cor pode ter no máximo {CorTamanhoMaximo} caracteres.");
+
+        if (anoFabricacao is < PrimeiroAnoAceito or > 2100)
+            throw new RegraDeNegocioException("Ano de fabricação inválido.");
+
         Placa = placaNormalizada;
         Modelo = modelo;
+        Cor = cor;
+        AnoFabricacao = anoFabricacao;
     }
 
     /// <summary>

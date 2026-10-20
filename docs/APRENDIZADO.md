@@ -1782,3 +1782,45 @@ O oxlint avisou: *"Cannot call impure function during render"*. O `new Date()` d
 |---|---|
 | API: tudo zero sem orçamentos; 4 bordas de fuso; em aberto (o vencido expira e não conta); recusado fora do faturamento; mês padrão = atual; mês 13 → 400; outra oficina vê zero; sem login → 401 | ✅ 10 de 10 |
 | Início no navegador: mês atual, cards, mês anterior, seta do futuro desabilitada, aprovar atualiza o Início, 360 px | ✅ 9 de 9 |
+
+## Passo 25 — Ajustes pedidos pela equipe
+
+### 1. "O botão de excluir categoria não está funcionando"
+**Antes de corrigir, reproduzir.** Um teste no navegador listou as categorias reais:
+
+| Categoria | Serviços | Botão excluir |
+|---|---|---|
+| Funilaria e pintura | 19 | desabilitado |
+| Lavagem e higienização | 3 | desabilitado |
+| … (as 5) | ≥ 1 | desabilitado |
+| Uma categoria **vazia**, criada no teste | 0 | ✅ funcionou |
+
+O botão funcionava, mas só para categoria vazia, e **todas as categorias reais têm serviços**. O motivo do bloqueio ("mova os serviços antes") aparecia só no `title`, a dica que surge ao **passar o mouse**. No celular não existe mouse, então o botão simplesmente não respondia. **Lição:** um `title` não serve para explicar nada no celular, e um botão desabilitado sem explicação parece quebrado.
+
+**A correção** foi além da mensagem, porque **não existia jeito** de excluir uma categoria com serviços (serviço não tem exclusão, só desativação, para preservar o histórico):
+- **O botão fica sempre ativo**, e a confirmação diz o que vai acontecer: *"Excluir a categoria e os seus 3 serviço(s)?"*.
+- A API recebe `?incluirServicos=true` e exclui **categoria e serviços numa transação só**.
+- **Se algum serviço já estiver em orçamento,** nada é apagado e a mensagem diz **o que fazer**: *"Não dá para excluir: Serviço X já está em orçamentos. Edite esse(s) serviço(s), mude a categoria e tente de novo."* Para descobrir isso, o `SelectMany` "abre" os itens de todos os orçamentos (que são *owned*, passo 18) numa lista só.
+
+### 2. Cor e ano de fabricação do veículo
+Pedido da equipe: ajudam a achar a **tinta** certa.
+- **Opcionais:** os veículos já cadastrados não têm esses dados, e o cadastro no pátio não pode travar por causa deles.
+- **O ano vai de 1900 até o ano que vem** (modelos novos saem antes do ano). O Domínio confere só um limite de segurança (1900 a 2100), porque ele não lê o relógio (passo 18); o teto real (ano atual + 1) é conferido no app, que sabe a data de hoje.
+- **Aparecem em todo lugar:** "Civic · Prata Lunar · 2019" na tela do cliente, no seletor, no orçamento e no PDF (`descreverVeiculo`, uma função só).
+- **Um componente para os 4 formulários:** placa, modelo, cor e ano aparecem no cadastro de cliente, na tela do cliente e em dois lugares do seletor de cliente do orçamento. Em vez de copiar os campos novos 4 vezes, eles viraram o componente **`CamposDoVeiculo`**. Ele recebe `register` como uma função que só conhece os 4 nomes de campo, e por isso serve tanto ao formulário só de veículo quanto ao de cliente novo, que tem também nome e WhatsApp.
+
+### 3. Formas de pagamento no PDF
+- Ficam **na oficina** (`oficinas.formas_de_pagamento`, tipo `text[]`), e não no código: dá para mudar sem programador, pelo `alterar-oficina` ("Pix, Dinheiro, Cartão de débito, Cartão de crédito").
+- **`text[]`** é uma lista guardada numa coluna só, recurso do PostgreSQL. No C#, é um `string[]`, e o Npgsql faz a conversão.
+- **Só os nomes**, sem chave Pix nem parcelas (pedido do dono). No PDF: *"Formas de pagamento: Pix, Dinheiro, Cartão de débito e Cartão de crédito."*. O `ListarComE` escreve a lista como se fala em português, com "e" antes do último.
+- O Domínio limpa a lista: tira espaços, vazios e repetidas ("Pix" e "pix" contam como uma só).
+
+### Testes feitos
+| Teste | Resultado |
+|---|---|
+| Testes de unidade (cor, ano, formas de pagamento) | ✅ 85 de 85 |
+| Excluir categoria com serviço livre (some junto) / com serviço já orçado (explica o que fazer) | ✅ |
+| Cadastro com ano impossível (recusado) / com cor e ano / sem cor e ano / editar a cor | ✅ |
+| Orçamento e PDF mostram "Onix · Vermelho Carmim · 2021" | ✅ |
+| PDF com "Formas de pagamento: Pix, Dinheiro, Cartão de débito e Cartão de crédito." | ✅ (conferido como imagem) |
+| Regressão: telas de clientes e de orçamento | ✅ 0 falhas |

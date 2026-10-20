@@ -8,11 +8,11 @@ using Orcamentos.Infrastructure.Dados;
 
 namespace Orcamentos.Api.Features.Clientes;
 
-public record VeiculoRequest(string Placa, string Modelo);
+public record VeiculoRequest(string Placa, string Modelo, string? Cor, int? AnoFabricacao);
 public record CriarClienteRequest(string Nome, string WhatsApp, List<VeiculoRequest>? Veiculos);
 public record AtualizarClienteRequest(string Nome, string WhatsApp);
 
-public record VeiculoResponse(Guid Id, string Placa, string Modelo);
+public record VeiculoResponse(Guid Id, string Placa, string Modelo, string? Cor, int? AnoFabricacao);
 public record ClienteResponse(Guid Id, string Nome, string WhatsApp, List<VeiculoResponse> Veiculos);
 
 public static partial class ClientesEndpoints
@@ -59,7 +59,7 @@ public static partial class ClientesEndpoints
             .OrderBy(c => c.Nome)
             .Take(LimiteDaBusca)
             .Select(c => new ClienteResponse(c.Id, c.Nome, c.WhatsApp,
-                c.Veiculos.OrderBy(v => v.Placa).Select(v => new VeiculoResponse(v.Id, v.Placa, v.Modelo)).ToList()))
+                c.Veiculos.OrderBy(v => v.Placa).Select(v => new VeiculoResponse(v.Id, v.Placa, v.Modelo, v.Cor, v.AnoFabricacao)).ToList()))
             .ToListAsync(ct);
 
         return TypedResults.Ok(clientes);
@@ -76,7 +76,7 @@ public static partial class ClientesEndpoints
     {
         var cliente = new Cliente(oficinaAtual.IdObrigatorio(), request.Nome, request.WhatsApp);
         foreach (var v in request.Veiculos ?? [])
-            cliente.AdicionarVeiculo(v.Placa, v.Modelo);
+            cliente.AdicionarVeiculo(v.Placa, v.Modelo, v.Cor, v.AnoFabricacao);
 
         foreach (var veiculo in cliente.Veiculos)
             if (await PlacaEmUso(db, veiculo.Placa, veiculoIgnorado: null, ct) is { } problema)
@@ -124,7 +124,7 @@ public static partial class ClientesEndpoints
         if (cliente is null)
             return ClienteNaoEncontrado();
 
-        var veiculo = cliente.AdicionarVeiculo(request.Placa, request.Modelo);
+        var veiculo = cliente.AdicionarVeiculo(request.Placa, request.Modelo, request.Cor, request.AnoFabricacao);
         if (await PlacaEmUso(db, veiculo.Placa, veiculoIgnorado: null, ct) is { } problema)
             return problema;
 
@@ -139,7 +139,7 @@ public static partial class ClientesEndpoints
         if (cliente is null)
             return ClienteNaoEncontrado();
 
-        cliente.AtualizarVeiculo(veiculoId, request.Placa, request.Modelo);
+        cliente.AtualizarVeiculo(veiculoId, request.Placa, request.Modelo, request.Cor, request.AnoFabricacao);
         if (await PlacaEmUso(db, Veiculo.NormalizarPlaca(request.Placa), veiculoIgnorado: veiculoId, ct) is { } problema)
             return problema;
 
@@ -182,7 +182,7 @@ public static partial class ClientesEndpoints
 
     private static ClienteResponse ParaResponse(Cliente c) =>
         new(c.Id, c.Nome, c.WhatsApp,
-            c.Veiculos.OrderBy(v => v.Placa).Select(v => new VeiculoResponse(v.Id, v.Placa, v.Modelo)).ToList());
+            c.Veiculos.OrderBy(v => v.Placa).Select(v => new VeiculoResponse(v.Id, v.Placa, v.Modelo, v.Cor, v.AnoFabricacao)).ToList());
 
     [GeneratedRegex("[^A-Za-z0-9]")]
     private static partial Regex SoLetrasENumeros();

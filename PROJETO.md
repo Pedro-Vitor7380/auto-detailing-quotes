@@ -58,7 +58,7 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
    - Ativar e desativar serviços.
 3. **Clientes e veículos**
    - Cliente: **nome** e **WhatsApp**.
-   - Veículo: **placa** e **modelo**. Um cliente pode ter vários veículos.
+   - Veículo: **placa** e **modelo**; **cor** e **ano de fabricação** opcionais (ajudam a achar a tinta, pedido da equipe). Um cliente pode ter vários veículos.
    - Busca por nome ou placa.
 4. **Criação do orçamento** (fluxo pensado para o celular)
    - Escolher o cliente e o veículo, ou cadastrar na hora.
@@ -70,7 +70,7 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
 5. **PDF do orçamento**
    - **Logo e dados da oficina.**
    - Itens, valores, desconto e total.
-   - **Validade.**
+   - **Validade** e **formas de pagamento aceitas** (só os nomes, sem chave Pix nem parcelas).
 6. **Envio pelo WhatsApp**: botão para compartilhar o PDF ou abrir a conversa com o cliente.
 7. **Status e histórico**
    - `Rascunho → Enviado → Aprovado / Recusado / Expirado`.
@@ -117,10 +117,10 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
 Todas as tabelas de negócio têm `OficinaId`, para que o sistema já nasça preparado para várias oficinas.
 
 ```
-Oficina       (Id, Nome, CNPJ, Endereco, Telefone, LogoUrl)
+Oficina       (Id, Nome, CNPJ, Endereco, Telefone, Logo, FormasDePagamento)
 Usuario       (Id, OficinaId, Nome, Email, SenhaHash)
 Cliente       (Id, OficinaId, Nome, WhatsApp)
-Veiculo       (Id, OficinaId, ClienteId, Placa, Modelo)
+Veiculo       (Id, OficinaId, ClienteId, Placa, Modelo, Cor?, AnoFabricacao?)
 Categoria     (Id, OficinaId, Nome)
 Servico       (Id, OficinaId, CategoriaId, Nome, Descricao, PrecoMinimo, PrecoMaximo,
                Ativo)

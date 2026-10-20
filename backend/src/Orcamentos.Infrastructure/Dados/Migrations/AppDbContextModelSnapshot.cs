@@ -111,6 +111,11 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("endereco");
 
+                    b.PrimitiveCollection<string[]>("FormasDePagamento")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("formas_de_pagamento");
+
                     b.Property<byte[]>("Logo")
                         .HasColumnType("bytea")
                         .HasColumnName("logo");
@@ -331,9 +336,18 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<int?>("AnoFabricacao")
+                        .HasColumnType("integer")
+                        .HasColumnName("ano_fabricacao");
+
                     b.Property<Guid>("ClienteId")
                         .HasColumnType("uuid")
                         .HasColumnName("cliente_id");
+
+                    b.Property<string>("Cor")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("cor");
 
                     b.Property<DateTimeOffset>("CriadoEm")
                         .HasColumnType("timestamp with time zone")

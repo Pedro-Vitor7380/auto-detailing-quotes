@@ -36,6 +36,11 @@ public static class AlterarOficinaComando
                 telefone: PerguntarOpcional("Telefone", oficina.Telefone),
                 endereco: PerguntarOpcional("Endereço", oficina.Endereco));
 
+            // Uma linha só, separada por vírgula: "Pix, Dinheiro, Cartão de débito, Cartão de crédito".
+            var formasAtuais = oficina.FormasDePagamento.Length > 0 ? string.Join(", ", oficina.FormasDePagamento) : null;
+            var formas = PerguntarOpcional("Formas de pagamento (separadas por vírgula)", formasAtuais);
+            oficina.DefinirFormasDePagamento(formas?.Split(',') ?? []);
+
             await db.SaveChangesAsync();
 
             Console.WriteLine($"Oficina atualizada: {oficina.Nome}");

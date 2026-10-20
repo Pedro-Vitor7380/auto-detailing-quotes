@@ -6,14 +6,15 @@ import { Link, useNavigate } from 'react-router'
 import { z } from 'zod'
 import { apiClientes, chavesClientes } from '../../api/clientes'
 import { AlertaDeErro, Campo, classeDoBotaoPrincipal, classeDoCampo } from '../../components/formulario'
-import { esquemaDoCliente, esquemaDoVeiculo } from './esquemas'
+import { CamposDoVeiculo } from './CamposDoVeiculo'
+import { esquemaDoCliente, esquemaDoVeiculo, paraDadosDoVeiculo, veiculoVazio } from './esquemas'
 
 // No pátio, o cliente e o carro são cadastrados juntos, numa tela só. O veículo é opcional,
-// mas, se começar a preencher, placa e modelo passam a ser obrigatórios.
+// mas, se começar a preencher qualquer campo dele, placa e modelo passam a ser obrigatórios.
 const esquema = esquemaDoCliente
-  .extend({ placa: z.string().trim(), modelo: z.string().trim() })
+  .extend({ placa: z.string().trim(), modelo: z.string().trim(), cor: z.string().trim(), anoFabricacao: z.string().trim() })
   .superRefine((v, ctx) => {
-    if (!v.placa && !v.modelo) return
+    if (!v.placa && !v.modelo && !v.cor && !v.anoFabricacao) return
     // Reaproveita as regras do veículo; cada erro já vem com o "path" do campo certo (placa ou modelo).
     const veiculo = esquemaDoVeiculo.safeParse(v)
     for (const problema of veiculo.error?.issues ?? []) ctx.addIssue({ code: 'custom', message: problema.message, path: problema.path })
@@ -30,7 +31,7 @@ export function NovoClientePage() {
     formState: { errors },
   } = useForm<Valores>({
     resolver: zodResolver(esquema),
-    defaultValues: { nome: '', whatsApp: '', placa: '', modelo: '' },
+    defaultValues: { nome: '', whatsApp: '', ...veiculoVazio },
   })
 
   const criar = useMutation({
@@ -38,7 +39,7 @@ export function NovoClientePage() {
       apiClientes.criar({
         nome: v.nome,
         whatsApp: v.whatsApp,
-        veiculos: v.placa ? [{ placa: v.placa, modelo: v.modelo }] : [],
+        veiculos: v.placa ? [paraDadosDoVeiculo(v)] : [],
       }),
     onSuccess: (cliente) => {
       // O cliente novo já fica no cache: a tela dele abre sem chamar a API de novo.
@@ -79,13 +80,8 @@ export function NovoClientePage() {
 
         <fieldset className="border-t border-slate-200 pt-4">
           <legend className="text-sm font-semibold text-slate-700">Veículo (opcional)</legend>
-          <div className="mt-2 grid grid-cols-[8rem_1fr] gap-3">
-            <Campo id="placa" rotulo="Placa" erro={errors.placa?.message}>
-              <input {...campo('placa')} autoCapitalize="characters" placeholder="ABC1D23" className={`${classeDoCampo} uppercase`} />
-            </Campo>
-            <Campo id="modelo" rotulo="Modelo" erro={errors.modelo?.message}>
-              <input {...campo('modelo')} placeholder="Ex.: Civic 2019" className={classeDoCampo} />
-            </Campo>
+          <div className="mt-2">
+            <CamposDoVeiculo register={(nome) => register(nome)} erros={errors} prefixo="novo" />
           </div>
         </fieldset>
 

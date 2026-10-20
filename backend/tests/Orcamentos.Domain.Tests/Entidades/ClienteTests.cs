@@ -105,4 +105,42 @@ public class ClienteTests
     {
         Assert.Throws<RegraDeNegocioException>(() => Criar().RemoverVeiculo(Guid.NewGuid()));
     }
+
+    [Fact]
+    public void AdicionarVeiculo_GuardaCorEAno_ERemoveEspacos()
+    {
+        var veiculo = Criar().AdicionarVeiculo("ABC1D23", "Civic", "  Prata Lunar ", 2019);
+
+        Assert.Equal("Prata Lunar", veiculo.Cor);
+        Assert.Equal(2019, veiculo.AnoFabricacao);
+    }
+
+    [Fact]
+    public void AdicionarVeiculo_SemCorEAno_FicaNulo()
+    {
+        var veiculo = Criar().AdicionarVeiculo("ABC1D23", "Civic", "   ", null);
+
+        Assert.Null(veiculo.Cor);
+        Assert.Null(veiculo.AnoFabricacao);
+    }
+
+    [Theory]
+    [InlineData(1899)]
+    [InlineData(2101)]
+    public void AdicionarVeiculo_ComAnoImpossivel_LancaRegraDeNegocio(int ano)
+    {
+        Assert.Throws<RegraDeNegocioException>(() => Criar().AdicionarVeiculo("ABC1D23", "Civic", "Preto", ano));
+    }
+
+    [Fact]
+    public void AtualizarVeiculo_TrocaCorEAno()
+    {
+        var cliente = Criar();
+        var veiculo = cliente.AdicionarVeiculo("ABC1D23", "Civic");
+
+        cliente.AtualizarVeiculo(veiculo.Id, "ABC1D23", "Civic", "Branco Pérola", 2020);
+
+        Assert.Equal("Branco Pérola", veiculo.Cor);
+        Assert.Equal(2020, veiculo.AnoFabricacao);
+    }
 }

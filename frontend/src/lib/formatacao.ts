@@ -46,6 +46,11 @@ export function formatarWhatsApp(numero: string): string {
   return `(${ddd}) ${resto.slice(0, meio)}-${resto.slice(meio)}`
 }
 
+/** "Civic · Prata · 2019": modelo e, se cadastrados, cor e ano. */
+export function descreverVeiculo(v: { modelo: string; cor?: string | null; anoFabricacao?: number | null }): string {
+  return [v.modelo, v.cor, v.anoFabricacao].filter(Boolean).join(' · ')
+}
+
 /** Placa antiga com hífen ("ABC-1234"), Mercosul sem ("ABC1D23"), como aparecem nas placas reais. */
 export function formatarPlaca(placa: string): string {
   return /^[A-Z]{3}\d{4}$/.test(placa) ? `${placa.slice(0, 3)}-${placa.slice(3)}` : placa

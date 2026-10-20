@@ -31,7 +31,9 @@ export const apiCatalogo = {
   criarCategoria: (nome: string) => requisicao<Categoria>('/api/categorias', { metodo: 'POST', corpo: { nome } }),
   renomearCategoria: (id: string, nome: string) =>
     requisicao<Categoria>(`/api/categorias/${id}`, { metodo: 'PUT', corpo: { nome } }),
-  excluirCategoria: (id: string) => requisicao<void>(`/api/categorias/${id}`, { metodo: 'DELETE' }),
+  // incluirServicos: apaga junto os serviços da categoria (a API recusa se algum já estiver em orçamento).
+  excluirCategoria: (id: string, incluirServicos: boolean) =>
+    requisicao<void>(`/api/categorias/${id}${incluirServicos ? '?incluirServicos=true' : ''}`, { metodo: 'DELETE' }),
 
   // O catálogo é pequeno (dezenas de itens): buscamos tudo de uma vez e filtramos no próprio celular.
   listarServicos: () => requisicao<Servico[]>('/api/servicos?incluirInativos=true'),

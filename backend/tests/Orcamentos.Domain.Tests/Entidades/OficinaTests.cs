@@ -57,4 +57,21 @@ public class OficinaTests
 
         Assert.Throws<RegraDeNegocioException>(() => new Oficina("Estética Exemplo").DefinirLogo(grande));
     }
+
+    [Fact]
+    public void DefinirFormasDePagamento_LimpaEspacosVaziosERepetidas()
+    {
+        var oficina = new Oficina("Estética Exemplo");
+
+        oficina.DefinirFormasDePagamento([" Pix ", "", "Dinheiro", "pix", "Cartão de crédito"]);
+
+        Assert.Equal(["Pix", "Dinheiro", "Cartão de crédito"], oficina.FormasDePagamento);
+    }
+
+    [Fact]
+    public void DefinirFormasDePagamento_ComNomeLongoDemais_LancaRegraDeNegocio()
+    {
+        Assert.Throws<RegraDeNegocioException>(() =>
+            new Oficina("Estética Exemplo").DefinirFormasDePagamento([new string('x', 41)]));
+    }
 }

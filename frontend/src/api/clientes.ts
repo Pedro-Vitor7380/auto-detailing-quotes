@@ -5,6 +5,8 @@ export interface Veiculo {
   id: string
   placa: string
   modelo: string
+  cor: string | null
+  anoFabricacao: number | null
 }
 
 export interface Cliente {
@@ -17,6 +19,8 @@ export interface Cliente {
 export interface DadosDoVeiculo {
   placa: string
   modelo: string
+  cor: string | null
+  anoFabricacao: number | null
 }
 
 export const apiClientes = {

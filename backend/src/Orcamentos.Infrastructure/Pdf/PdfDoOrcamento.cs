@@ -9,7 +9,7 @@ namespace Orcamentos.Infrastructure.Pdf;
 /// <summary>Tudo que aparece no PDF. O orçamento sozinho não basta: precisa dos dados da oficina, do cliente e do carro.</summary>
 public record DadosDoPdf(
     Oficina Oficina, Orcamento Orcamento, string ClienteNome, string ClienteWhatsApp,
-    string Placa, string Modelo, DateOnly EmitidoEm);
+    string Placa, string Modelo, string? Cor, int? AnoFabricacao, DateOnly EmitidoEm);
 
 /// <summary>
 /// Monta o PDF do orçamento com o QuestPDF. A página é descrita em C# como "caixas" dentro de caixas
@@ -75,7 +75,9 @@ public static class PdfDoOrcamento
             {
                 linha.RelativeItem().Element(c => Bloco(c, "CLIENTE", d.ClienteNome, FormatarWhatsApp(d.ClienteWhatsApp)));
                 linha.ConstantItem(12);
-                linha.RelativeItem().Element(c => Bloco(c, "VEÍCULO", d.Modelo, FormatarPlaca(d.Placa)));
+                // Placa · cor · ano: só o que estiver cadastrado (cor e ano são opcionais).
+                var detalhes = string.Join(" · ", new[] { FormatarPlaca(d.Placa), d.Cor, d.AnoFabricacao?.ToString() }.Where(x => x is not null));
+                linha.RelativeItem().Element(c => Bloco(c, "VEÍCULO", d.Modelo, detalhes));
             });
 
             // Itens
@@ -130,10 +132,21 @@ public static class PdfDoOrcamento
 
             // Validade. Sem prazo de entrega, de propósito: com vários carros na oficina ao mesmo tempo,
             // a soma dos tempos dos serviços não diz quando ESTE carro fica pronto (pedido da equipe).
-            coluna.Item().Background("#FBF6EA").Padding(10).Text(t =>
+            coluna.Item().Background("#FBF6EA").Padding(10).Column(info =>
             {
-                t.Span("Validade: ").SemiBold();
-                t.Span($"este orçamento vale até {Data(o.Validade)}.");
+                info.Spacing(3);
+                info.Item().Text(t =>
+                {
+                    t.Span("Validade: ").SemiBold();
+                    t.Span($"este orçamento vale até {Data(o.Validade)}.");
+                });
+                // Só os nomes, sem chave Pix nem parcelas (pedido do dono). Sem formas cadastradas, a linha não aparece.
+                if (d.Oficina.FormasDePagamento.Length > 0)
+                    info.Item().Text(t =>
+                    {
+                        t.Span("Formas de pagamento: ").SemiBold();
+                        t.Span(ListarComE(d.Oficina.FormasDePagamento) + ".");
+                    });
             });
 
             if (o.Observacoes is not null)
@@ -183,6 +196,10 @@ public static class PdfDoOrcamento
     private static string Moeda(decimal valor) => valor.ToString("C", PtBr);
     private static string Data(DateOnly data) => data.ToString("dd/MM/yyyy", PtBr);
     private static string? Rotulo(string rotulo, string? valor) => valor is null ? null : $"{rotulo}: {valor}";
+
+    /// <summary>["Pix", "Dinheiro", "Cartão"] → "Pix, Dinheiro e Cartão" (como se escreve em português).</summary>
+    public static string ListarComE(IReadOnlyList<string> itens) =>
+        itens.Count <= 1 ? string.Join("", itens) : $"{string.Join(", ", itens.Take(itens.Count - 1))} e {itens[^1]}";
 
     /// <summary>"5511999998888" → "(11) 99999-8888". Mesma regra do app (formatarWhatsApp).</summary>
     public static string FormatarWhatsApp(string numero)

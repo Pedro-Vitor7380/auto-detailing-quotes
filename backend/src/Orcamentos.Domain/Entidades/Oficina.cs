@@ -11,6 +11,9 @@ public class Oficina : Entidade
     public string? Cnpj { get; private set; }
     public string? Telefone { get; private set; }
     public string? Endereco { get; private set; }
+    /// <summary>Só os nomes ("Pix", "Cartão de crédito"): sem chave Pix nem parcelas (pedido do dono). Aparecem no PDF.</summary>
+    public string[] FormasDePagamento { get; private set; } = [];
+
     public const int LogoTamanhoMaximo = 1024 * 1024; // 1 MB: sobra para uma logo; o PDF não fica pesado
 
     /// <summary>Imagem da logo (PNG ou JPEG), usada no cabeçalho do PDF. Fica no banco, ligada à oficina.</summary>
@@ -40,6 +43,21 @@ public class Oficina : Entidade
     }
 
     /// <summary>Null remove a logo. Confere o formato pelos primeiros bytes do arquivo, não pela extensão.</summary>
+    /// <summary>Tira espaços, vazios e repetidas (sem diferenciar maiúsculas), mantendo a ordem digitada.</summary>
+    public void DefinirFormasDePagamento(IEnumerable<string> formas)
+    {
+        var limpas = formas
+            .Select(f => f.Trim())
+            .Where(f => f.Length > 0)
+            .DistinctBy(f => f.ToLowerInvariant())
+            .ToArray();
+
+        if (limpas.Length > 10 || limpas.Any(f => f.Length > 40))
+            throw new RegraDeNegocioException("Use até 10 formas de pagamento, com até 40 caracteres cada.");
+
+        FormasDePagamento = limpas;
+    }
+
     public void DefinirLogo(byte[]? imagem)
     {
         if (imagem is { Length: > LogoTamanhoMaximo })

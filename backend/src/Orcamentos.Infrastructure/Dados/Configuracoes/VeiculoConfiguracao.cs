@@ -17,6 +17,7 @@ public class VeiculoConfiguracao : IEntityTypeConfiguration<Veiculo>
 
         builder.Property(v => v.Placa).HasMaxLength(7).IsRequired();
         builder.Property(v => v.Modelo).HasMaxLength(Veiculo.ModeloTamanhoMaximo).IsRequired();
+        builder.Property(v => v.Cor).HasMaxLength(Veiculo.CorTamanhoMaximo);
 
         // Um carro pertence a um cliente só, dentro da oficina.
         builder.HasIndex(v => new { v.OficinaId, v.Placa }).IsUnique();

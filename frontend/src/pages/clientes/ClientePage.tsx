@@ -13,8 +13,9 @@ import {
   classeDoBotaoSecundario,
   classeDoCampo,
 } from '../../components/formulario'
-import { formatarPlaca, formatarWhatsApp } from '../../lib/formatacao'
-import { esquemaDoCliente, esquemaDoVeiculo, type ValoresDoCliente, type ValoresDoVeiculo } from './esquemas'
+import { descreverVeiculo, formatarPlaca, formatarWhatsApp } from '../../lib/formatacao'
+import { CamposDoVeiculo } from './CamposDoVeiculo'
+import { esquemaDoCliente, esquemaDoVeiculo, paraDadosDoVeiculo, veiculoVazio, type ValoresDoCliente, type ValoresDoVeiculo } from './esquemas'
 
 /** Depois de qualquer alteração: guarda o cliente devolvido pela API e marca as buscas como desatualizadas. */
 function useAoAlterarCliente() {
@@ -167,7 +168,7 @@ function LinhaDoVeiculo({ cliente, veiculo }: { cliente: Cliente; veiculo: Veicu
         <Car className="size-5 shrink-0 text-slate-400" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="font-mono font-semibold">{formatarPlaca(veiculo.placa)}</p>
-          <p className="truncate text-sm text-slate-500">{veiculo.modelo}</p>
+          <p className="truncate text-sm text-slate-500">{descreverVeiculo(veiculo)}</p>
         </div>
         <button onClick={() => setEditando(true)} aria-label={`Editar ${veiculo.placa}`} className={botaoIcone}>
           <Pencil className="size-5" aria-hidden />
@@ -207,12 +208,16 @@ function FormularioDoVeiculo({
     formState: { errors },
   } = useForm<ValoresDoVeiculo>({
     resolver: zodResolver(esquemaDoVeiculo),
-    defaultValues: { placa: veiculo ? formatarPlaca(veiculo.placa) : '', modelo: veiculo?.modelo ?? '' },
+    defaultValues: veiculo
+      ? { placa: formatarPlaca(veiculo.placa), modelo: veiculo.modelo, cor: veiculo.cor ?? '', anoFabricacao: veiculo.anoFabricacao?.toString() ?? '' }
+      : veiculoVazio,
   })
 
   const salvar = useMutation({
     mutationFn: (v: ValoresDoVeiculo) =>
-      veiculo ? apiClientes.atualizarVeiculo(cliente.id, veiculo.id, v) : apiClientes.adicionarVeiculo(cliente.id, v),
+      veiculo
+        ? apiClientes.atualizarVeiculo(cliente.id, veiculo.id, paraDadosDoVeiculo(v))
+        : apiClientes.adicionarVeiculo(cliente.id, paraDadosDoVeiculo(v)),
     onSuccess: (atualizado) => {
       aoAlterar(atualizado)
       aoTerminar()
@@ -226,27 +231,7 @@ function FormularioDoVeiculo({
       noValidate
       className={`space-y-3 ${veiculo ? '' : 'mt-3 rounded-xl border border-slate-200 bg-white p-4'}`}
     >
-      <div className="grid grid-cols-[8rem_1fr] gap-3">
-        <Campo id={`${prefixo}-placa`} rotulo="Placa" erro={errors.placa?.message}>
-          <input
-            id={`${prefixo}-placa`}
-            {...register('placa')}
-            autoCapitalize="characters"
-            placeholder="ABC1D23"
-            aria-invalid={!!errors.placa}
-            className={`${classeDoCampo} uppercase`}
-          />
-        </Campo>
-        <Campo id={`${prefixo}-modelo`} rotulo="Modelo" erro={errors.modelo?.message}>
-          <input
-            id={`${prefixo}-modelo`}
-            {...register('modelo')}
-            placeholder="Ex.: Civic 2019"
-            aria-invalid={!!errors.modelo}
-            className={classeDoCampo}
-          />
-        </Campo>
-      </div>
+      <CamposDoVeiculo register={register} erros={errors} prefixo={prefixo} />
       <AlertaDeErro erro={salvar.error} />
       <div className="flex justify-end gap-2">
         {podeCancelar && (
