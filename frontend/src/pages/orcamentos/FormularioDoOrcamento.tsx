@@ -8,6 +8,7 @@ import { apiCatalogo, chavesCatalogo, type Servico } from '../../api/catalogo'
 import { apiOrcamentos, type Orcamento, type OrcamentoParaSalvar, type TipoDeDesconto } from '../../api/orcamentos'
 import { AlertaDeErro, Campo, classeDoBotaoPrincipal, classeDoBotaoSecundario, classeDoCampo } from '../../components/formulario'
 import {
+  descreverVeiculo,
   formatarData,
   formatarDecimal,
   formatarFaixa,
@@ -117,7 +118,7 @@ export function FormularioDoOrcamento({ orcamento, aoSalvar, aoMudarPendencia }:
     orcamento
       ? {
           cliente: { id: orcamento.clienteId, nome: orcamento.clienteNome, whatsApp: orcamento.clienteWhatsApp },
-          veiculo: { id: orcamento.veiculoId, placa: orcamento.placa, modelo: orcamento.modelo },
+          veiculo: { id: orcamento.veiculoId, placa: orcamento.placa, modelo: orcamento.modelo, cor: orcamento.cor, anoFabricacao: orcamento.anoFabricacao },
         }
       : null,
   )
@@ -204,7 +205,7 @@ export function FormularioDoOrcamento({ orcamento, aoSalvar, aoMudarPendencia }:
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{selecao.cliente.nome}</p>
                 <p className="truncate text-sm text-slate-500">
-                  <span className="font-mono font-semibold">{formatarPlaca(selecao.veiculo.placa)}</span> {selecao.veiculo.modelo}
+                  <span className="font-mono font-semibold">{formatarPlaca(selecao.veiculo.placa)}</span> {descreverVeiculo(selecao.veiculo)}
                 </p>
               </div>
               <button
@@ -435,7 +436,7 @@ export function ResumoDoOrcamento({ orcamento: o }: { orcamento: Orcamento }) {
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
         <p className="font-medium">{o.clienteNome}</p>
         <p className="text-sm text-slate-500">
-          <span className="font-mono font-semibold">{formatarPlaca(o.placa)}</span> {o.modelo}
+          <span className="font-mono font-semibold">{formatarPlaca(o.placa)}</span> {descreverVeiculo(o)}
         </p>
       </div>
       <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">

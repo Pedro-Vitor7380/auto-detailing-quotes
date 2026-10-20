@@ -68,19 +68,43 @@ public static class CategoriasEndpoints
         return TypedResults.Ok(new CategoriaResponse(categoria.Id, categoria.Nome, quantidade));
     }
 
-    private static async Task<Results<NoContent, ProblemHttpResult>> Excluir(Guid id, AppDbContext db, CancellationToken ct)
+    /// <summary>
+    /// Com incluirServicos=true, exclui também os serviços da categoria, desde que NENHUM deles esteja
+    /// em um orçamento (o histórico apontaria para o nada). Sem o parâmetro, só exclui categoria vazia.
+    /// </summary>
+    private static async Task<Results<NoContent, ProblemHttpResult>> Excluir(
+        Guid id, AppDbContext db, CancellationToken ct, bool incluirServicos = false)
     {
         var categoria = await db.Categorias.FirstOrDefaultAsync(c => c.Id == id, ct);
         if (categoria is null)
             return Problemas.NaoEncontrado("Categoria não encontrada.");
 
         // Inclui os inativos: o banco também impediria (Restrict), mas aqui a mensagem é clara.
-        if (await db.Servicos.AnyAsync(s => s.CategoriaId == id, ct))
-            return Problemas.Conflito("A categoria tem serviços. Mova-os para outra categoria antes de excluir.");
+        var servicos = await db.Servicos.Where(s => s.CategoriaId == id).ToListAsync(ct);
+        if (servicos.Count > 0 && !incluirServicos)
+            return Problemas.Conflito($"A categoria tem {servicos.Count} serviço(s). Confirme a exclusão junto com eles.");
+
+        if (servicos.Count > 0)
+        {
+            // SelectMany "abre" os itens de todos os orçamentos (os itens são owned, passo 18) numa lista só.
+            var idsDosServicos = servicos.Select(s => s.Id).ToList();
+            var emUso = await db.Orcamentos
+                .SelectMany(o => o.Itens)
+                .Where(i => i.ServicoId != null && idsDosServicos.Contains(i.ServicoId.Value))
+                .Select(i => i.Descricao)
+                .Distinct()
+                .ToListAsync(ct);
+
+            if (emUso.Count > 0)
+                return Problemas.Conflito(
+                    $"Não dá para excluir: {string.Join(", ", emUso)} já {(emUso.Count == 1 ? "está" : "estão")} em orçamentos. " +
+                    "Edite esse(s) serviço(s), mude a categoria e tente de novo.");
+
+            db.Servicos.RemoveRange(servicos);
+        }
 
         db.Categorias.Remove(categoria);
-        await db.SaveChangesAsync(ct);
-
+        await db.SaveChangesAsync(ct); // serviços e categoria numa transação só
         return TypedResults.NoContent();
     }
 

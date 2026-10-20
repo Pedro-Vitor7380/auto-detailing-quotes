@@ -45,9 +45,9 @@ public partial class Cliente : EntidadeDaOficina
         WhatsApp = numero;
     }
 
-    public Veiculo AdicionarVeiculo(string placa, string modelo)
+    public Veiculo AdicionarVeiculo(string placa, string modelo, string? cor = null, int? anoFabricacao = null)
     {
-        var veiculo = new Veiculo(OficinaId, Id, placa, modelo);
+        var veiculo = new Veiculo(OficinaId, Id, placa, modelo, cor, anoFabricacao);
 
         // Regra do conjunto: o mesmo cliente não tem a mesma placa duas vezes.
         // (A regra "placa única na oficina inteira" precisa do banco, então fica no endpoint.)
@@ -58,7 +58,7 @@ public partial class Cliente : EntidadeDaOficina
         return veiculo;
     }
 
-    public void AtualizarVeiculo(Guid veiculoId, string placa, string modelo)
+    public void AtualizarVeiculo(Guid veiculoId, string placa, string modelo, string? cor = null, int? anoFabricacao = null)
     {
         var veiculo = ObterVeiculo(veiculoId);
         var placaNormalizada = Veiculo.NormalizarPlaca(placa);
@@ -66,7 +66,7 @@ public partial class Cliente : EntidadeDaOficina
         if (_veiculos.Any(v => v.Id != veiculoId && v.Placa == placaNormalizada))
             throw new RegraDeNegocioException($"O veículo {placaNormalizada} já está cadastrado para este cliente.");
 
-        veiculo.Atualizar(placa, modelo);
+        veiculo.Atualizar(placa, modelo, cor, anoFabricacao);
     }
 
     public void RemoverVeiculo(Guid veiculoId) => _veiculos.Remove(ObterVeiculo(veiculoId));

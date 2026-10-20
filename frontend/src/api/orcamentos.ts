@@ -27,6 +27,8 @@ export interface Orcamento {
   veiculoId: string
   placa: string
   modelo: string
+  cor: string | null
+  anoFabricacao: number | null
   itens: ItemDoOrcamento[]
   subtotal: number
   descontoTipo: TipoDeDesconto

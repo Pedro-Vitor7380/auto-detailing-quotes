@@ -26,7 +26,7 @@ public record ItemResponse(
 public record OrcamentoResponse(
     Guid Id, string Numero, StatusDoOrcamento Status, bool PodeSerEditado,
     Guid ClienteId, string ClienteNome, string ClienteWhatsApp, Guid VeiculoId, string Placa, string Modelo,
-    List<ItemResponse> Itens, decimal Subtotal, TipoDeDesconto DescontoTipo, decimal DescontoValor,
+    string? Cor, int? AnoFabricacao, List<ItemResponse> Itens, decimal Subtotal, TipoDeDesconto DescontoTipo, decimal DescontoValor,
     decimal ValorDoDesconto, decimal Total, DateOnly Validade, string? Observacoes,
     DateTimeOffset CriadoEm, DateTimeOffset? EnviadoEm, DateTimeOffset? AprovadoEm, DateTimeOffset? RecusadoEm);
 
@@ -195,7 +195,7 @@ public static partial class OrcamentosEndpoints
         var veiculo = nomes.Veiculos[orcamento.VeiculoId];
 
         var pdf = PdfDoOrcamento.Gerar(new DadosDoPdf(oficina, orcamento, cliente.Nome, cliente.WhatsApp,
-            veiculo.Placa, veiculo.Modelo, Relogio.DataNoFuso(orcamento.CriadoEm)));
+            veiculo.Placa, veiculo.Modelo, veiculo.Cor, veiculo.AnoFabricacao, Relogio.DataNoFuso(orcamento.CriadoEm)));
 
         // O nome do arquivo ("ORC-2026-0001.pdf") é o que aparece para o cliente no WhatsApp.
         return TypedResults.File(pdf, "application/pdf", $"{orcamento.Numero}.pdf");
@@ -301,12 +301,12 @@ public static partial class OrcamentosEndpoints
 
         return new OrcamentoResponse(o.Id, o.Numero, o.Status, o.PodeSerEditado,
             o.ClienteId, cliente.Nome, cliente.WhatsApp, o.VeiculoId, veiculo.Placa, veiculo.Modelo,
-            itens, o.Subtotal, o.DescontoTipo, o.DescontoValor, o.ValorDoDesconto, o.Total,
+            veiculo.Cor, veiculo.AnoFabricacao, itens, o.Subtotal, o.DescontoTipo, o.DescontoValor, o.ValorDoDesconto, o.Total,
             o.Validade, o.Observacoes, o.CriadoEm, o.EnviadoEm, o.AprovadoEm, o.RecusadoEm);
     }
 
     private record NomesDoCliente(string Nome, string WhatsApp);
-    private record NomesDoVeiculo(string Placa, string Modelo);
+    private record NomesDoVeiculo(string Placa, string Modelo, string? Cor, int? AnoFabricacao);
 
     // Duas consultas (clientes e veículos) para todos os orçamentos da lista, em vez de duas POR orçamento.
     private static async Task<(Dictionary<Guid, NomesDoCliente> Clientes, Dictionary<Guid, NomesDoVeiculo> Veiculos)> NomesDeClientesEVeiculos(
@@ -318,7 +318,7 @@ public static partial class OrcamentosEndpoints
         var clientes = await db.Clientes.Where(c => idsClientes.Contains(c.Id))
             .ToDictionaryAsync(c => c.Id, c => new NomesDoCliente(c.Nome, c.WhatsApp), ct);
         var veiculos = await db.Veiculos.Where(v => idsVeiculos.Contains(v.Id))
-            .ToDictionaryAsync(v => v.Id, v => new NomesDoVeiculo(v.Placa, v.Modelo), ct);
+            .ToDictionaryAsync(v => v.Id, v => new NomesDoVeiculo(v.Placa, v.Modelo, v.Cor, v.AnoFabricacao), ct);
 
         return (clientes, veiculos);
     }
