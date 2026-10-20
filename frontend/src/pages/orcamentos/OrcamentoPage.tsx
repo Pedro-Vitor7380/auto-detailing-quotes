@@ -6,6 +6,7 @@ import { apiOrcamentos, chavesOrcamentos, type Orcamento } from '../../api/orcam
 import { AlertaDeErro, Carregando, classeDoBotaoSecundario } from '../../components/formulario'
 import { SeloDeStatus } from '../../components/SeloDeStatus'
 import { formatarData } from '../../lib/formatacao'
+import { AgendamentoDoOrcamento } from './AgendamentoDoOrcamento'
 import { EnviarPeloWhatsApp } from './EnviarPeloWhatsApp'
 import { FormularioDoOrcamento, ResumoDoOrcamento } from './FormularioDoOrcamento'
 
@@ -180,6 +181,8 @@ function Detalhe({ orcamento: o, aoMudar }: { orcamento: Orcamento; aoMudar: (o:
         <FormularioDoOrcamento orcamento={o} aoSalvar={aoMudar} aoMudarPendencia={setTemAlteracoes} />
       ) : (
         <>
+          {/* Aprovado: a próxima etapa é combinar o dia do serviço com o cliente */}
+          {o.status === 'Aprovado' && <AgendamentoDoOrcamento orcamento={o} aoMudar={aoMudar} />}
           <p className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-600">
             Orçamento {o.status.toLowerCase()}: não pode ser alterado. Use <strong>Duplicar</strong> para criar um novo a partir dele.
           </p>

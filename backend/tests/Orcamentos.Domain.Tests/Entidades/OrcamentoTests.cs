@@ -346,4 +346,82 @@ public class OrcamentoTests
         Assert.Null(copia.AprovadoEm);
         Assert.NotEqual(original.Itens.Single().Id, copia.Itens.Single().Id);
     }
+
+    // ===== Agendamento =====
+
+    private static Orcamento Aprovado()
+    {
+        var orcamento = Criar();
+        orcamento.AdicionarAvulso("Serviço", 1, 100m);
+        orcamento.Aprovar(Agora);
+        return orcamento;
+    }
+
+    [Fact]
+    public void Agendar_Aprovado_GuardaODia()
+    {
+        var orcamento = Aprovado();
+        var terca = new DateOnly(2026, 10, 20);
+
+        orcamento.Agendar(terca, Hoje);
+
+        Assert.Equal(terca, orcamento.DataAgendada);
+    }
+
+    [Fact]
+    public void Agendar_DeNovo_Reagenda()
+    {
+        var orcamento = Aprovado();
+        orcamento.Agendar(new DateOnly(2026, 10, 20), Hoje);
+
+        orcamento.Agendar(new DateOnly(2026, 10, 22), Hoje);
+
+        Assert.Equal(new DateOnly(2026, 10, 22), orcamento.DataAgendada);
+    }
+
+    [Fact]
+    public void Agendar_SemEstarAprovado_LancaRegraDeNegocio()
+    {
+        var rascunho = Criar();
+        rascunho.AdicionarAvulso("Serviço", 1, 100m);
+
+        Assert.Throws<RegraDeNegocioException>(() => rascunho.Agendar(new DateOnly(2026, 10, 20), Hoje));
+    }
+
+    [Fact]
+    public void Agendar_NoPassado_LancaRegraDeNegocio()
+    {
+        Assert.Throws<RegraDeNegocioException>(() => Aprovado().Agendar(Hoje.AddDays(-1), Hoje));
+    }
+
+    [Fact]
+    public void Agendar_NoDomingo_LancaRegraDeNegocio()
+    {
+        var domingo = new DateOnly(2026, 10, 25);
+        Assert.Equal(DayOfWeek.Sunday, domingo.DayOfWeek);
+
+        Assert.Throws<RegraDeNegocioException>(() => Aprovado().Agendar(domingo, Hoje));
+    }
+
+    [Fact]
+    public void Agendar_Hoje_EPermitido()
+    {
+        var orcamento = Aprovado();
+
+        orcamento.Agendar(Hoje, Hoje); // 19/10/2026 é segunda-feira
+
+        Assert.Equal(Hoje, orcamento.DataAgendada);
+    }
+
+    [Fact]
+    public void CancelarAgendamento_LimpaODia_ESemAgendamentoLanca()
+    {
+        var orcamento = Aprovado();
+        Assert.Throws<RegraDeNegocioException>(orcamento.CancelarAgendamento);
+
+        orcamento.Agendar(new DateOnly(2026, 10, 20), Hoje);
+        orcamento.CancelarAgendamento();
+
+        Assert.Null(orcamento.DataAgendada);
+    }
 }

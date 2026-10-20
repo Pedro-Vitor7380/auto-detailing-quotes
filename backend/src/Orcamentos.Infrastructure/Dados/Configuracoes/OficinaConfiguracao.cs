@@ -19,6 +19,8 @@ public class OficinaConfiguracao : IEntityTypeConfiguration<Oficina>
         builder.Property(o => o.Endereco).HasMaxLength(250);
         // string[] vira text[]: o PostgreSQL guarda listas numa coluna só (o Npgsql faz a conversão).
         builder.Property(o => o.FormasDePagamento);
+        // A oficina que já existe recebe 3 (o limite escolhido pelo dono) ao aplicar a migration.
+        builder.Property(o => o.CarrosPorDia).HasDefaultValue(3);
         // bytea: o tipo do PostgreSQL para dados binários. Vem junto sempre que a oficina é carregada,
         // por isso o limite de 1 MB no Domínio.
         builder.Property(o => o.Logo);

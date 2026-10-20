@@ -41,6 +41,11 @@ public static class AlterarOficinaComando
             var formas = PerguntarOpcional("Formas de pagamento (separadas por vírgula)", formasAtuais);
             oficina.DefinirFormasDePagamento(formas?.Split(',') ?? []);
 
+            var carros = Terminal.PerguntarMantendo("Carros por dia na agenda", oficina.CarrosPorDia.ToString());
+            if (!int.TryParse(carros, out var carrosPorDia))
+                throw new RegraDeNegocioException("Carros por dia precisa ser um número.");
+            oficina.DefinirCarrosPorDia(carrosPorDia);
+
             await db.SaveChangesAsync();
 
             Console.WriteLine($"Oficina atualizada: {oficina.Nome}");
