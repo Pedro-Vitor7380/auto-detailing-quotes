@@ -78,13 +78,18 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
    - Lista com filtro por status e busca por cliente ou placa.
    - Duplicar um orçamento.
 8. **Faturamento previsto**: total dos orçamentos aprovados no mês. *(É o primeiro item a sair se o prazo apertar.)*
+9. **Agenda** *(pedido da equipe, 20/10/2026)*:
+   - Depois de aprovado, o orçamento é **agendado**: escolhe-se um dia no calendário, pergunta-se ao cliente pelo WhatsApp ("Temos a terça-feira, 27/10, disponível... Podemos agendar?") e confirma-se. Dá para reagendar e cancelar.
+   - Limite de **carros por dia** configurável (começa em 3). **Domingo fechado.** Não se agenda no passado nem em dia lotado.
+   - Cores: **azul claro** = livre · **verde** = 1 carro · **laranja** = 2 · **vermelho** = lotado (3) · **azul escuro** = dia escolhido · cinza = fechado.
+   - No **Início**, o calendário vem **antes** do faturamento; tocar num dia mostra os carros agendados.
 
 ### Fora do MVP (talvez no futuro)
 
 - Várias oficinas, com cadastro e assinatura (SaaS).
 - Vários usuários com perfis de acesso.
 - Link para o cliente aprovar online.
-- Ordem de serviço e agenda.
+- Ordem de serviço (controle da execução).
 - Outros relatórios (taxa de aprovação, serviços mais vendidos).
 - Lembretes de retorno (ex.: manutenção da vitrificação).
 
@@ -117,7 +122,7 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
 Todas as tabelas de negócio têm `OficinaId`, para que o sistema já nasça preparado para várias oficinas.
 
 ```
-Oficina       (Id, Nome, CNPJ, Endereco, Telefone, Logo, FormasDePagamento)
+Oficina       (Id, Nome, CNPJ, Endereco, Telefone, Logo, FormasDePagamento, CarrosPorDia)
 Usuario       (Id, OficinaId, Nome, Email, SenhaHash)
 Cliente       (Id, OficinaId, Nome, WhatsApp)
 Veiculo       (Id, OficinaId, ClienteId, Placa, Modelo, Cor?, AnoFabricacao?)
@@ -126,7 +131,8 @@ Servico       (Id, OficinaId, CategoriaId, Nome, Descricao, PrecoMinimo, PrecoMa
                Ativo)
 Orcamento     (Id, OficinaId, Numero, ClienteId, VeiculoId, Status,
                DescontoTipo [Valor|Percentual], DescontoValor,
-               Validade, Observacoes, CriadoEm, EnviadoEm, AprovadoEm)
+               Validade, Observacoes, CriadoEm, EnviadoEm, AprovadoEm, RecusadoEm,
+               DataAgendada?)
 ItemOrcamento (Id, OrcamentoId, ServicoId?, Descricao, Quantidade,
                PrecoCatalogo, ValorUnitario, ObservacaoEstado)
 ```

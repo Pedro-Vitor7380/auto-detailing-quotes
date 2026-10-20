@@ -2,14 +2,18 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
+import type { DiaDaAgenda } from '../api/agenda'
 import { apiPainel, chavesPainel } from '../api/painel'
+import { CalendarioDaAgenda } from '../components/CalendarioDaAgenda'
 import { AlertaDeErro } from '../components/formulario'
-import { formatarMoeda } from '../lib/formatacao'
+import { diaPorExtenso } from '../lib/calendario'
+import { formatarMoeda, formatarPlaca } from '../lib/formatacao'
 
 const nomeDoMes = (ano: number, mes: number) =>
   new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
 export function InicioPage() {
+  const [diaAberto, setDiaAberto] = useState<DiaDaAgenda | null>(null)
   // Lê a data UMA vez, quando a tela abre: new Date() muda a cada chamada, e a tela não deve mudar sozinha.
   const [mesAtual] = useState(() => {
     const hoje = new Date()
@@ -48,7 +52,17 @@ export function InicioPage() {
         Novo orçamento
       </Link>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Agenda primeiro: os dias disponíveis são o que a equipe mais consulta (pedido da equipe) */}
+      <section className="mt-6">
+        <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">Agenda</h2>
+        <div className="mt-2 grid gap-4 lg:grid-cols-[minmax(0,26rem)_1fr]">
+          <CalendarioDaAgenda modo="ver" selecionado={diaAberto?.data} aoTocarDia={(dia) => setDiaAberto(dia.data === diaAberto?.data ? null : dia)} />
+          {diaAberto && <CarrosDoDia dia={diaAberto} />}
+        </div>
+      </section>
+
+      <h2 className="mt-8 text-sm font-semibold tracking-wide text-slate-500 uppercase">Orçamentos e faturamento</h2>
+      <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Em aberto não depende do mês: é o que está pendente agora */}
         <Link to="/orcamentos" className="rounded-xl border border-slate-200 bg-white p-5 hover:border-slate-300">
           <p className="text-sm text-slate-500">Orçamentos em aberto</p>
@@ -63,10 +77,10 @@ export function InicioPage() {
           <div className="-mt-2 -mr-2 flex items-center justify-between">
             <p className="text-sm font-medium text-slate-700 first-letter:uppercase" aria-live="polite">{nomeDoMes(ano, mes)}</p>
             <div className="flex">
-              <button type="button" onClick={() => mudarMes(-1)} aria-label="Mês anterior" className="flex size-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100">
+              <button type="button" onClick={() => mudarMes(-1)} aria-label="Faturamento: mês anterior" className="flex size-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100">
                 <ChevronLeft className="size-5" aria-hidden />
               </button>
-              <button type="button" onClick={() => mudarMes(1)} disabled={ehMesAtual} aria-label="Próximo mês" className="flex size-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-30">
+              <button type="button" onClick={() => mudarMes(1)} disabled={ehMesAtual} aria-label="Faturamento: próximo mês" className="flex size-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-30">
                 <ChevronRight className="size-5" aria-hidden />
               </button>
             </div>
@@ -90,5 +104,30 @@ export function InicioPage() {
       {/* Para conferir se o celular já está com a versão mais nova (o app instalado se atualiza sozinho). */}
       <p className="mt-10 text-center text-xs text-slate-500">Versão {__VERSAO_DO_APP__}</p>
     </section>
+  )
+}
+
+/** Os carros agendados num dia, com link para cada orçamento. */
+function CarrosDoDia({ dia }: { dia: DiaDaAgenda }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="font-semibold first-letter:uppercase">{diaPorExtenso(dia.data)}</p>
+      {dia.carros.length === 0 ? (
+        <p className="mt-1 text-sm text-slate-500">Nenhum carro agendado.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-slate-100">
+          {dia.carros.map((c) => (
+            <li key={c.orcamentoId}>
+              <Link to={`/orcamentos/${c.orcamentoId}`} className="flex flex-col py-2 hover:bg-slate-50">
+                <span className="font-medium">{c.clienteNome}</span>
+                <span className="text-sm text-slate-500">
+                  <span className="font-mono">{formatarPlaca(c.placa)}</span> {c.modelo} · {c.numero}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

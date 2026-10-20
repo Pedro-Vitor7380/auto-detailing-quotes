@@ -1,5 +1,6 @@
 using Orcamentos.Api.Comandos;
 using Orcamentos.Api.Comum;
+using Orcamentos.Api.Features.Agenda;
 using Orcamentos.Api.Features.Auth;
 using Orcamentos.Api.Features.Catalogo;
 using Orcamentos.Api.Features.Clientes;
@@ -93,6 +94,7 @@ app.MapServicosEndpoints();
 app.MapClientesEndpoints();
 app.MapOrcamentosEndpoints();
 app.MapPainelEndpoints();
+app.MapAgendaEndpoints();
 
 await app.RunAsync();
 return 0;

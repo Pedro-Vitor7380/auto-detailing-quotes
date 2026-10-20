@@ -33,6 +33,9 @@ public class Orcamento : EntidadeDaOficina
     public DateTimeOffset? AprovadoEm { get; private set; }
     public DateTimeOffset? RecusadoEm { get; private set; }
 
+    /// <summary>Dia em que o carro vem para o serviço (combinado com o cliente depois da aprovação).</summary>
+    public DateOnly? DataAgendada { get; private set; }
+
     public IReadOnlyCollection<ItemOrcamento> Itens => _itens.AsReadOnly();
 
     // ===== Valores calculados (não são gravados no banco: sempre batem com os itens) =====
@@ -225,6 +228,32 @@ public class Orcamento : EntidadeDaOficina
         if (Status != StatusDoOrcamento.Rascunho)
             throw new RegraDeNegocioException(
                 $"Só rascunhos podem ser excluídos. Este orçamento está {Status.ToString().ToLowerInvariant()} e fica no histórico.");
+    }
+
+    // ===== Agendamento (só depois de aprovado) =====
+
+    /// <summary>
+    /// Marca o dia do serviço. Reagendar é chamar de novo com outro dia.
+    /// O limite de carros por dia precisa do banco (contar os outros agendamentos), então fica no endpoint.
+    /// </summary>
+    public void Agendar(DateOnly dia, DateOnly hoje)
+    {
+        if (Status != StatusDoOrcamento.Aprovado)
+            throw new RegraDeNegocioException("Só um orçamento aprovado pode ser agendado.");
+        if (dia < hoje)
+            throw new RegraDeNegocioException("Escolha um dia de hoje em diante.");
+        if (!Oficina.AbreEm(dia))
+            throw new RegraDeNegocioException("A oficina não abre neste dia.");
+
+        DataAgendada = dia;
+    }
+
+    public void CancelarAgendamento()
+    {
+        if (DataAgendada is null)
+            throw new RegraDeNegocioException("Este orçamento não tem agendamento.");
+
+        DataAgendada = null;
     }
 
     // ===== Regras auxiliares =====

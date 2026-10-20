@@ -41,6 +41,7 @@ export interface Orcamento {
   enviadoEm: string | null
   aprovadoEm: string | null
   recusadoEm: string | null
+  dataAgendada: string | null // "2026-10-27"
 }
 
 export interface OrcamentoResumo {
@@ -53,6 +54,7 @@ export interface OrcamentoResumo {
   total: number
   validade: string
   criadoEm: string
+  dataAgendada: string | null
 }
 
 /** Item como o app envia: com id = já existe; sem id = novo (do catálogo, se tiver servicoId). */
@@ -91,6 +93,9 @@ export const apiOrcamentos = {
   aprovar: (id: string) => requisicao<Orcamento>(`/api/orcamentos/${id}/aprovar`, { metodo: 'POST' }),
   recusar: (id: string) => requisicao<Orcamento>(`/api/orcamentos/${id}/recusar`, { metodo: 'POST' }),
   duplicar: (id: string) => requisicao<Orcamento>(`/api/orcamentos/${id}/duplicar`, { metodo: 'POST' }),
+  agendar: (id: string, data: string) =>
+    requisicao<Orcamento>(`/api/orcamentos/${id}/agendar`, { metodo: 'POST', corpo: { data } }),
+  cancelarAgendamento: (id: string) => requisicao<Orcamento>(`/api/orcamentos/${id}/agendamento`, { metodo: 'DELETE' }),
   pdf: (id: string) => requisicao<Blob>(`/api/orcamentos/${id}/pdf`, { formato: 'arquivo' }),
 }
 

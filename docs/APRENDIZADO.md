@@ -1824,3 +1824,76 @@ Pedido da equipe: ajudam a achar a **tinta** certa.
 | Orçamento e PDF mostram "Onix · Vermelho Carmim · 2021" | ✅ |
 | PDF com "Formas de pagamento: Pix, Dinheiro, Cartão de débito e Cartão de crédito." | ✅ (conferido como imagem) |
 | Regressão: telas de clientes e de orçamento | ✅ 0 falhas |
+
+### Em produção
+- Migration `VeiculoCorAnoEFormasDePagamento` aplicada no Neon (só acrescenta colunas).
+- Formas de pagamento gravadas com `alterar-oficina`: "Pix, Dinheiro, Cartão de débito, Cartão de crédito" (conferido relendo o valor).
+
+## Passo 26 — Agenda de serviços
+
+### A ideia (da equipe)
+> Depois que o cliente aprova, mostrar um calendário com os dias disponíveis; escolher um dia, perguntar ao cliente pelo WhatsApp e, quando ele confirmar, marcar o agendamento. No Início, o mesmo calendário, **acima** do faturamento, porque os dias disponíveis são o que mais importa no dia a dia.
+
+**Decisões combinadas com o dono:** limite **configurável** de carros por dia (começa em 3), **domingo fechado** e estas cores:
+
+| Situação | Cor |
+|---|---|
+| Nenhum carro | azul claro |
+| 1 carro | verde |
+| 2 carros | laranja |
+| 3 carros (lotado) | vermelho, não dá para escolher |
+| Dia escolhido, antes de confirmar | azul escuro |
+| Domingo / dia que já passou | cinza |
+
+Com outro limite, a regra continua fazendo sentido: **falta 1 vaga = laranja**, **lotado = vermelho**, entre 1 e isso = verde. A legenda é calculada a partir do limite.
+
+### Onde fica cada regra
+| Regra | Onde |
+|---|---|
+| Só orçamento **aprovado** agenda; não no passado; não no domingo | Domínio: `Orcamento.Agendar`, `Oficina.AbreEm` |
+| Limite de carros por dia | Endpoint (precisa contar no banco) + `Oficina.CarrosPorDia` |
+| Reagendar = agendar de novo; cancelar limpa o dia | Domínio |
+
+### Pegadinha: dois celulares pegando a última vaga
+O endpoint conta os agendados do dia e, se houver vaga, grava. Se dois pedidos contam **ao mesmo tempo**, os dois veem vaga e os dois gravam. É o mesmo problema da numeração (passo 18), com a mesma solução: **trava**.
+```csharp
+await using var transacao = await db.Database.BeginTransactionAsync(ct);
+var carrosPorDia = await db.Oficinas
+    .FromSql($"SELECT * FROM oficinas WHERE id = {orcamento.OficinaId} FOR UPDATE")  // trava a linha
+    .Select(o => o.CarrosPorDia).SingleAsync(ct);
+// ... conta, agenda, salva ...
+await transacao.CommitAsync(ct);   // libera a trava
+```
+O `FOR UPDATE` trava a linha da **oficina** até o fim da transação. O segundo pedido **espera** o primeiro terminar e só então conta as vagas, já com o carro do primeiro.
+
+**Prova** (6 pedidos simultâneos para um dia vazio, limite 3, 5 rodadas):
+
+| Versão | Agendados por rodada |
+|---|---|
+| **Sem** `FOR UPDATE` | **6, 6, 6, 6, 6**: o dia ficou com o **dobro** do limite em todas as rodadas |
+| **Com** `FOR UPDATE` | 3, 3, 3, 3, 3 |
+
+Esse é o tipo de erro que nenhum teste "um de cada vez" pega, e que no pátio apareceria como "por que tem 6 carros marcados para terça?".
+
+### A agenda na API
+`GET /api/agenda?de=2026-10-01&ate=2026-10-31` devolve **cada dia** do período com `aberto` (false em domingo ou dia que já passou), `ocupados` e os carros (número, cliente, placa, modelo), além do limite da oficina. O app só pinta. O período é limitado a 62 dias, para ninguém pedir anos de agenda de uma vez. O `ToLookup` agrupa os orçamentos por dia, como um dicionário em que dia sem nada devolve uma lista vazia.
+
+### As telas
+- **Orçamento aprovado:** calendário → tocar num dia (azul escuro) → **"Perguntar ao cliente"** abre o WhatsApp com *"Olá, Roberta! Temos a terça-feira, 27/10, disponível para o serviço no Fiat Pulse (placa ZAP1B23). Podemos agendar?"* → **"Confirmar agendamento"**. Depois aparecem "Agendado para terça-feira, 27/10", **Reagendar** e **Cancelar agendamento**.
+- **Início:** o calendário no topo; tocar num dia mostra os carros daquele dia, com link para cada orçamento. O faturamento desceu.
+- **`CalendarioDaAgenda`**, um componente só para as duas telas, com dois modos: **"escolher"** (só dias abertos e com vaga) e **"ver"** (qualquer dia, inclusive os que já passaram, apagados).
+- **"Temos a terça-feira" / "Temos o sábado":** o `artigoDoDia` escolhe "a" ou "o".
+
+### O que os testes pegaram
+1. **Um link "desabilitado" não existe.** "Perguntar ao cliente" era um `<a>` sem `href` antes de escolher o dia. Para o navegador e para leitores de tela, isso **não é link nem botão**, e o teste não o encontrou. Agora é um `<button disabled>` até haver um dia, e vira link (`wa.me`) depois.
+2. **No Início, o dia tocado perdia a cor.** Tocar no dia 23 (laranja) para ver os carros o deixava azul escuro, e escondia justamente a lotação. No modo "ver", o dia mantém a cor e ganha **só um contorno**.
+3. **Dois botões "Próximo mês" no Início** (calendário e faturamento). O teste não sabia qual clicar, e um leitor de tela também não diria. Agora são "Agenda: próximo mês" e "Faturamento: próximo mês".
+
+### Testes feitos
+| Teste | Resultado |
+|---|---|
+| Testes de unidade (agendar só aprovado, passado, domingo, hoje, reagendar, cancelar, limite) | ✅ 95 de 95 |
+| API: regras, agenda do período, reagendar libera vaga, cancelar, isolamento, período grande | ✅ 17 de 17 |
+| **Concorrência**: 6 simultâneos, limite 3 | ✅ sempre 3 (sem a trava: 6) |
+| Navegador: as 5 cores, domingo, botões antes de escolher, azul escuro, mensagem do WhatsApp, confirmar, Início acima do faturamento, dia agendado verde, carros do dia, contorno no Início, reagendar, cancelar, 360 px | ✅ 18 de 18 |
+| Regressão: painel, Início, orçamento, WhatsApp | ✅ 0 falhas |

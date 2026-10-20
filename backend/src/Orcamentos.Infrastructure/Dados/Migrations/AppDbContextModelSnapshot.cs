@@ -97,6 +97,12 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<int>("CarrosPorDia")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3)
+                        .HasColumnName("carros_por_dia");
+
                     b.Property<string>("Cnpj")
                         .HasMaxLength(18)
                         .HasColumnType("character varying(18)")
@@ -160,6 +166,10 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("criado_em");
 
+                    b.Property<DateOnly?>("DataAgendada")
+                        .HasColumnType("date")
+                        .HasColumnName("data_agendada");
+
                     b.Property<string>("DescontoTipo")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -214,6 +224,9 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
 
                     b.HasIndex("VeiculoId")
                         .HasDatabaseName("ix_orcamentos_veiculo_id");
+
+                    b.HasIndex("OficinaId", "DataAgendada")
+                        .HasDatabaseName("ix_orcamentos_oficina_id_data_agendada");
 
                     b.HasIndex("OficinaId", "Status")
                         .HasDatabaseName("ix_orcamentos_oficina_id_status");
