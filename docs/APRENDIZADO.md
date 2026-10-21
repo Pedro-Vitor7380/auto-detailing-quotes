@@ -1948,3 +1948,85 @@ migrationBuilder.Sql("UPDATE orcamentos SET agendado_ate = agendado_de WHERE age
 | Mensagem copiada ao enviar o PDF (área de transferência conferida) | ✅ |
 | PDF com os telefones e o endereço, sem CNPJ (conferido como imagem) | ✅ |
 | Regressão: orçamento e WhatsApp | ✅ 0 falhas |
+
+### Em produção (21/10/2026)
+- Migration `AgendaPorPeriodo` aplicada **pelo nome** (`dotnet ef database update AgendaPorPeriodo`), uns 9 minutos depois do merge, para o Render já estar com o código novo. Pelo nome, porque a branch seguinte já tinha outra migration, e ela não podia ir junto.
+- Dados da oficina gravados com `alterar-oficina`.
+- **Banco de produção limpo**, a pedido do dono (eram dados de teste), numa única transação, com as contagens antes e depois:
+
+| | Antes | Depois |
+|---|---|---|
+| Orçamentos / itens | 14 / 36 | 0 / 0 |
+| Clientes / veículos | 5 / 7 | 0 / 0 |
+| Numeração | 1 | 0 (o próximo é ORC-2026-0001) |
+| **Serviços / categorias** | 37 / 5 | **37 / 5 (mantidos)** |
+| Oficina / usuário | 1 / 1 | 1 / 1 (sem eles, ninguém entra) |
+
+## Passo 28 — Aviso de entrega (notificações)
+
+### O pedido, e o que custa cada parte
+A equipe queria, no dia anterior à entrega, **um aviso para eles** ("você tem um serviço para concluir amanhã, precisa adiar ou pode avisar o cliente?") e **outro para o cliente** ("seu carro estará pronto amanhã").
+
+| Para quem | Como | Custo |
+|---|---|---|
+| **Equipe** | Notificação no celular (*Web Push*) | **Grátis** |
+| **Cliente, automático** | Só pelo WhatsApp oficial (API do WhatsApp Business, da Meta) ou SMS | **Pago por mensagem**, além de cadastro da empresa, aprovação dos textos e número exclusivo |
+| **Cliente, com um toque** | A equipe toca em "Avisar cliente" e o WhatsApp abre com a mensagem pronta | **Grátis** (a escolha do dono) |
+
+### As três peças
+1. **Quadro "Terminam amanhã"** no Início (`GET /api/agenda/entregas`): **Avisar cliente** (WhatsApp com *"Olá, Roberta! Seu Fiat Pulse (placa AVS1B23) estará pronto amanhã, quinta-feira, 22/10. Qualquer dúvida, é só chamar."*) e **Adiar** (abre o orçamento para reagendar). Avisar fica **registrado** (`AvisoDeEntregaEm`), então o outro celular vê "Cliente avisado" e não manda de novo. Se a data da entrega mudar, o aviso é zerado, porque era sobre a data antiga.
+2. **Notificação no celular** (*Web Push*). Cada aparelho ativa a sua no Início, e a API guarda a **inscrição** (o endereço no serviço de notificações e as chaves do aparelho).
+3. **O "despertador"** (`.github/workflows/avisar-entregas.yml`): o GitHub Actions chama `POST /api/tarefas/avisar-entregas` **todo dia às 18h** de São Paulo (21h UTC). É preciso alguém de fora porque o Render gratuito dorme e não acordaria sozinho. O `curl` tenta de novo até 4 vezes, com intervalo de 30 s, porque a API pode estar acordando (passo 11).
+
+### Como funciona uma notificação "Web Push"
+O nosso servidor **não fala direto com o celular**. Quem entrega é o serviço de notificações do sistema (Google no Android, Apple no iPhone, Microsoft no Edge do Windows):
+1. **Inscrição:** o app pede permissão e o navegador cria uma inscrição, com um **endereço** no serviço de notificações e **duas chaves** do aparelho. A API guarda isso.
+2. **Envio:** a API **criptografa** a mensagem com as chaves do aparelho e manda para o endereço. O serviço de notificações **não consegue ler** o conteúdo: só repassa.
+3. **Entrega:** o **service worker** do app (`public/notificacoes-sw.js`) recebe a mensagem, **mesmo com o app fechado**, e mostra a notificação. Tocar nela abre o app.
+
+### Por que sem biblioteca: criptografia do próprio .NET
+As bibliotecas .NET de Web Push dependem do **Portable.BouncyCastle**, abandonado e com falhas de segurança conhecidas, corrigidas só no sucessor dele. Adicionar isso ao projeto seria trazer um problema conhecido. As duas especificações são públicas, e o .NET 10 tem todas as peças:
+
+| Etapa (RFC) | O que faz | Peça do .NET |
+|---|---|---|
+| **VAPID** (RFC 8292) | Um "crachá" assinado que prova ao serviço de notificações que a mensagem vem da **nossa** API | `ECDsa` (assinatura ES256) |
+| Acordo de segredo (RFC 8291) | Uma chave descartável **nova a cada mensagem** + a chave do aparelho geram um segredo em comum | `ECDiffieHellman` |
+| Derivação de chaves | Do segredo saem a chave e o "nonce" da criptografia | `HKDF` |
+| Criptografia | Cifra a mensagem; só aquele aparelho consegue abrir | `AesGcm` |
+
+O código está em `EnviadorDeNotificacoes.cs`, com cada etapa comentada.
+
+### A prova de que a criptografia está certa
+Nesse tipo de código, **um byte errado** faz o navegador **descartar a mensagem em silêncio**. A única prova que vale é um envio de verdade. O teste:
+1. abriu o app no Edge (build de produção, com service worker) e tocou em **"Ativar notificações"**. O Edge se inscreveu no serviço **real** da Microsoft (`wns2-bl2p.notify.windows.com`);
+2. agendou um carro com entrega amanhã e chamou a tarefa com a chave: *"carros: 1, enviadas: 1"*;
+3. conferiu, no próprio navegador, que a notificação **chegou e foi aberta**: *"Amanhã: 1 serviço para concluir. Fiat Pulse (AVS1B23), Roberta. Precisa adiar ou pode avisar o cliente?"*
+
+### Segurança da tarefa diária
+`/api/tarefas/avisar-entregas` não tem login, porque quem chama é o GitHub, não uma pessoa. Ela exige o cabeçalho `X-Chave-Tarefas` com uma chave aleatória de 32 bytes:
+- a chave fica no Render (`Tarefas__Chave`) e nos **secrets** do GitHub (`TAREFAS_CHAVE`), nunca no código. Ela foi colocada no GitHub com `gh secret set`, lida direto do arquivo, sem aparecer na tela;
+- a comparação usa `CryptographicOperations.FixedTimeEquals`, que leva **o mesmo tempo** acertando ou errando. Assim, o tempo de resposta não dá pistas da chave;
+- sem a chave ou com a chave errada: **401** (testado).
+
+### As chaves VAPID: geradas uma vez, fora do Git
+O comando `gerar-chaves-notificacao` cria o par VAPID e a chave da tarefa e grava em **`backend/.env.notificacoes`**, que o `.gitignore` já ignora (`.env.*`). Na tela, só aparece a chave **pública**, que não é segredo. Se o arquivo já existe, o comando **se recusa** a gerar de novo: trocar as chaves desativaria as notificações em todos os celulares.
+
+### Limites (honestos)
+- **iPhone:** só recebe com o app **instalado na tela de início** (iOS 16.4 ou mais novo). O app avisa isso.
+- **Permissão:** cada celular precisa aceitar. Se negar, o app explica como liberar.
+- **Horário:** o GitHub pode atrasar alguns minutos em horários de pico. "18h" é aproximado.
+- **Repositório parado:** em repositório público, o GitHub **desliga** agendamentos depois de 60 dias sem nenhum commit, e manda um e-mail avisando. Basta reativar na aba *Actions*.
+
+### O que os testes pegaram
+- **O lint (de novo):** `new Date()` durante o desenho da tela (o mesmo do passo 24) e um `setState` direto dentro de um `useEffect`. Os estados que dá para saber na hora (sem suporte, bloqueado) passaram a ser calculados na criação do estado; o efeito ficou só para a pergunta assíncrona "este aparelho já está inscrito?".
+- **Regressão com falhas que mudavam a cada rodada:** o teste do orçamento, rodado contra o **build de produção**, falhou em pontos diferentes a cada vez. Era o teste lendo a tela logo depois de um clique, sem esperar. Depois de ele passar a **esperar** o resultado, foram 3 rodadas seguidas com 29 de 29.
+
+### Testes feitos
+| Teste | Resultado |
+|---|---|
+| Testes de unidade (aviso de entrega, zerar ao mudar a entrega, inscrição) | ✅ 103 de 103 |
+| **Notificação real** pelo serviço da Microsoft: inscrever, enviar, chegar e abrir | ✅ |
+| Tarefa sem chave / com chave errada | ✅ 401 / 401 |
+| Quadro "Terminam amanhã", mensagem ao cliente, "Cliente avisado" registrado | ✅ |
+| Desativar: a tarefa não envia mais para o aparelho | ✅ |
+| Regressão: agenda (16/16) e orçamento (29/29, 3 rodadas) | ✅ |

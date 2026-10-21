@@ -39,6 +39,12 @@ public class Orcamento : EntidadeDaOficina
     /// <summary>Dia da entrega. Igual ao AgendadoDe quando o serviço cabe num dia só.</summary>
     public DateOnly? AgendadoAte { get; private set; }
 
+    /// <summary>
+    /// Quando alguém da equipe avisou o cliente de que o carro fica pronto (no dia anterior à entrega).
+    /// Serve para os dois celulares não avisarem o mesmo cliente duas vezes.
+    /// </summary>
+    public DateTimeOffset? AvisoDeEntregaEm { get; private set; }
+
     public IReadOnlyCollection<ItemOrcamento> Itens => _itens.AsReadOnly();
 
     // ===== Valores calculados (não são gravados no banco: sempre batem com os itens) =====
@@ -255,8 +261,20 @@ public class Orcamento : EntidadeDaOficina
         if (!Oficina.AbreEm(de) || !Oficina.AbreEm(ate))
             throw new RegraDeNegocioException("O carro precisa chegar e sair num dia em que a oficina abre.");
 
+        // Mudou o dia da entrega: o aviso dado antes era sobre a data antiga, então vale de novo.
+        if (AgendadoAte != ate)
+            AvisoDeEntregaEm = null;
+
         AgendadoDe = de;
         AgendadoAte = ate;
+    }
+
+    public void RegistrarAvisoDeEntrega(DateTimeOffset agora)
+    {
+        if (AgendadoAte is null)
+            throw new RegraDeNegocioException("Este orçamento não tem agendamento.");
+
+        AvisoDeEntregaEm = agora;
     }
 
     public void CancelarAgendamento()
@@ -266,6 +284,7 @@ public class Orcamento : EntidadeDaOficina
 
         AgendadoDe = null;
         AgendadoAte = null;
+        AvisoDeEntregaEm = null;
     }
 
     // ===== Regras auxiliares =====

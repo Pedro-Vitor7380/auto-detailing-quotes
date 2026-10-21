@@ -1,0 +1,30 @@
+# "Despertador" das notificações: todo dia às 18h (São Paulo), chama a API para avisar a equipe
+# dos serviços que terminam no dia seguinte. Precisa ser de fora porque o Render gratuito "dorme"
+# e não acordaria sozinho. Grátis: o GitHub Actions é gratuito para repositórios públicos.
+name: Avisar entregas de amanhã
+
+on:
+  schedule:
+    # 21:00 em UTC = 18:00 em São Paulo (o Brasil não tem mais horário de verão).
+    # O GitHub pode atrasar alguns minutos em horários de pico: não é um relógio exato.
+    - cron: '0 21 * * *'
+  workflow_dispatch: # botão "Run workflow" na aba Actions, para testar na hora
+
+permissions:
+  contents: read # o mínimo: este workflow não mexe no código
+
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Chamar a API (e acordá-la, se estiver dormindo)
+        env:
+          # A chave fica nos "secrets" do repositório: não aparece no código nem nos logs.
+          CHAVE: ${{ secrets.TAREFAS_CHAVE }}
+        run: |
+          # --retry: a 1ª chamada pode demorar ~25 s ou falhar enquanto o Render acorda (passo 11).
+          curl --fail-with-body --silent --show-error \
+            --retry 4 --retry-delay 30 --retry-all-errors --max-time 120 \
+            -X POST -H "X-Chave-Tarefas: $CHAVE" \
+            https://orcamentos-api-ukyf.onrender.com/api/tarefas/avisar-entregas

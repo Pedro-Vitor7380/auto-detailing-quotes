@@ -433,4 +433,37 @@ public class OrcamentoTests
         Assert.Null(orcamento.AgendadoDe);
         Assert.Null(orcamento.AgendadoAte);
     }
+
+    // ===== Aviso de entrega =====
+
+    [Fact]
+    public void RegistrarAvisoDeEntrega_GuardaQuando()
+    {
+        var orcamento = Aprovado();
+        orcamento.Agendar(new DateOnly(2026, 10, 20), new DateOnly(2026, 10, 22), Hoje);
+
+        orcamento.RegistrarAvisoDeEntrega(Agora);
+
+        Assert.Equal(Agora, orcamento.AvisoDeEntregaEm);
+    }
+
+    [Fact]
+    public void RegistrarAvisoDeEntrega_SemAgendamento_LancaRegraDeNegocio()
+    {
+        Assert.Throws<RegraDeNegocioException>(() => Aprovado().RegistrarAvisoDeEntrega(Agora));
+    }
+
+    [Fact]
+    public void Reagendar_OutraEntrega_ZeraOAviso_MesmaEntrega_Mantem()
+    {
+        var orcamento = Aprovado();
+        orcamento.Agendar(new DateOnly(2026, 10, 20), new DateOnly(2026, 10, 22), Hoje);
+        orcamento.RegistrarAvisoDeEntrega(Agora);
+
+        orcamento.Agendar(new DateOnly(2026, 10, 21), new DateOnly(2026, 10, 22), Hoje); // muda só a chegada
+        Assert.Equal(Agora, orcamento.AvisoDeEntregaEm);
+
+        orcamento.Agendar(new DateOnly(2026, 10, 21), new DateOnly(2026, 10, 23), Hoje); // muda a entrega
+        Assert.Null(orcamento.AvisoDeEntregaEm);
+    }
 }

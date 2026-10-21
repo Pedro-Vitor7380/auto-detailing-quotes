@@ -105,6 +105,8 @@ O Render e a Vercel publicam automaticamente a cada merge na `main`.
 | `ConnectionStrings__Banco` | connection string do Neon (formato .NET) |
 | `Jwt__Chave` | 48 bytes aleatórios (`openssl rand -base64 48`), **diferente** da de desenvolvimento |
 | `Cors__OrigensPermitidas__0` | endereço do app na Vercel (ex.: `https://xxx.vercel.app`) |
+| `Notificacoes__ChavePublica`, `Notificacoes__ChavePrivada`, `Notificacoes__Contato` | chaves VAPID das notificações (geradas por `dotnet run --project src/Orcamentos.Api -- gerar-chaves-notificacao`, que grava `backend/.env.notificacoes`, fora do Git) |
+| `Tarefas__Chave` | chave da tarefa diária de notificações (no mesmo arquivo); também vai nos *secrets* do GitHub como `TAREFAS_CHAVE` |
 
 **Vercel (app):**
 

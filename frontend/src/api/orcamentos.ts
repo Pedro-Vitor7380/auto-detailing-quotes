@@ -43,6 +43,7 @@ export interface Orcamento {
   recusadoEm: string | null
   agendadoDe: string | null // dia em que o carro chega, "2026-10-22"
   agendadoAte: string | null // dia da entrega
+  avisoDeEntregaEm: string | null // quando a equipe avisou o cliente de que o carro fica pronto
 }
 
 export interface OrcamentoResumo {
@@ -97,6 +98,7 @@ export const apiOrcamentos = {
   duplicar: (id: string) => requisicao<Orcamento>(`/api/orcamentos/${id}/duplicar`, { metodo: 'POST' }),
   agendar: (id: string, de: string, ate: string) =>
     requisicao<Orcamento>(`/api/orcamentos/${id}/agendar`, { metodo: 'POST', corpo: { de, ate } }),
+  avisoDeEntrega: (id: string) => requisicao<Orcamento>(`/api/orcamentos/${id}/aviso-de-entrega`, { metodo: 'POST' }),
   cancelarAgendamento: (id: string) => requisicao<Orcamento>(`/api/orcamentos/${id}/agendamento`, { metodo: 'DELETE' }),
   pdf: (id: string) => requisicao<Blob>(`/api/orcamentos/${id}/pdf`, { formato: 'arquivo' }),
 }

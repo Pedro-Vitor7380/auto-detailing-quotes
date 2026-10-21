@@ -5,6 +5,8 @@ import { Link } from 'react-router'
 import type { DiaDaAgenda } from '../api/agenda'
 import { apiPainel, chavesPainel } from '../api/painel'
 import { CalendarioDaAgenda } from '../components/CalendarioDaAgenda'
+import { AtivarNotificacoes } from './inicio/AtivarNotificacoes'
+import { TerminamAmanha } from './inicio/TerminamAmanha'
 import { AlertaDeErro } from '../components/formulario'
 import { diaPorExtenso } from '../lib/calendario'
 import { formatarMoeda, formatarPlaca } from '../lib/formatacao'
@@ -54,6 +56,9 @@ export function InicioPage() {
         <Plus className="size-6" aria-hidden />
         Novo orçamento
       </Link>
+
+      {/* O que pede ação hoje vem antes de tudo: carros com entrega amanhã */}
+      <TerminamAmanha />
 
       {/* Agenda primeiro: os dias disponíveis são o que a equipe mais consulta (pedido da equipe) */}
       <section className="mt-6">
@@ -107,6 +112,8 @@ export function InicioPage() {
       <div className="mt-3">
         <AlertaDeErro erro={painel.error} />
       </div>
+
+      <AtivarNotificacoes />
 
       {/* Para conferir se o celular já está com a versão mais nova (o app instalado se atualiza sozinho). */}
       <p className="mt-10 text-center text-xs text-slate-500">Versão {__VERSAO_DO_APP__}</p>

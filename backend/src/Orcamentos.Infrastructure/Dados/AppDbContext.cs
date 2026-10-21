@@ -16,6 +16,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IOficinaAtual 
     public DbSet<Veiculo> Veiculos => Set<Veiculo>();
     public DbSet<Orcamento> Orcamentos => Set<Orcamento>();
     public DbSet<ContadorDeOrcamentos> ContadoresDeOrcamentos => Set<ContadorDeOrcamentos>();
+    public DbSet<InscricaoDeNotificacao> InscricoesDeNotificacao => Set<InscricaoDeNotificacao>();
 
     // Lida de novo a cada consulta: o EF trata esta propriedade como um parâmetro, não como um valor fixo.
     private Guid? OficinaIdAtual => oficinaAtual.Id;
@@ -43,5 +44,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IOficinaAtual 
         modelBuilder.Entity<Cliente>().HasQueryFilter(c => c.OficinaId == OficinaIdAtual);
         modelBuilder.Entity<Veiculo>().HasQueryFilter(v => v.OficinaId == OficinaIdAtual);
         modelBuilder.Entity<Orcamento>().HasQueryFilter(o => o.OficinaId == OficinaIdAtual); // os itens (owned) vêm junto
+        modelBuilder.Entity<InscricaoDeNotificacao>().HasQueryFilter(i => i.OficinaId == OficinaIdAtual);
     }
 }

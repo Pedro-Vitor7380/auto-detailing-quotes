@@ -29,7 +29,7 @@ public record OrcamentoResponse(
     string? Cor, int? AnoFabricacao, List<ItemResponse> Itens, decimal Subtotal, TipoDeDesconto DescontoTipo, decimal DescontoValor,
     decimal ValorDoDesconto, decimal Total, DateOnly Validade, string? Observacoes,
     DateTimeOffset CriadoEm, DateTimeOffset? EnviadoEm, DateTimeOffset? AprovadoEm, DateTimeOffset? RecusadoEm,
-    DateOnly? AgendadoDe, DateOnly? AgendadoAte);
+    DateOnly? AgendadoDe, DateOnly? AgendadoAte, DateTimeOffset? AvisoDeEntregaEm);
 
 /// <summary>Período do serviço: chega em De, é entregue em Ate (um dia só: De = Ate).</summary>
 public record AgendarRequest(DateOnly De, DateOnly Ate);
@@ -62,6 +62,9 @@ public static partial class OrcamentosEndpoints
         grupo.MapGet("/{id:guid}/pdf", Pdf).WithSummary("PDF do orçamento, para enviar ao cliente");
         grupo.MapPost("/{id:guid}/agendar", Agendar).WithSummary("Marca (ou troca) o período do serviço de um orçamento aprovado");
         grupo.MapDelete("/{id:guid}/agendamento", CancelarAgendamento).WithSummary("Desmarca o período do serviço");
+        grupo.MapPost("/{id:guid}/aviso-de-entrega", (Guid id, AppDbContext db, Relogio relogio, CancellationToken ct) =>
+            MudarStatus(id, db, relogio, o => o.RegistrarAvisoDeEntrega(relogio.Agora), ct))
+            .WithSummary("Registra que o cliente foi avisado de que o carro fica pronto (os dois celulares veem)");
 
         return app;
     }
@@ -334,7 +337,7 @@ public static partial class OrcamentosEndpoints
         return new OrcamentoResponse(o.Id, o.Numero, o.Status, o.PodeSerEditado,
             o.ClienteId, cliente.Nome, cliente.WhatsApp, o.VeiculoId, veiculo.Placa, veiculo.Modelo,
             veiculo.Cor, veiculo.AnoFabricacao, itens, o.Subtotal, o.DescontoTipo, o.DescontoValor, o.ValorDoDesconto, o.Total,
-            o.Validade, o.Observacoes, o.CriadoEm, o.EnviadoEm, o.AprovadoEm, o.RecusadoEm, o.AgendadoDe, o.AgendadoAte);
+            o.Validade, o.Observacoes, o.CriadoEm, o.EnviadoEm, o.AprovadoEm, o.RecusadoEm, o.AgendadoDe, o.AgendadoAte, o.AvisoDeEntregaEm);
     }
 
     private record NomesDoCliente(string Nome, string WhatsApp);
