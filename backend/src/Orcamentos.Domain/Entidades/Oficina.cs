@@ -14,17 +14,6 @@ public class Oficina : Entidade
     /// <summary>Só os nomes ("Pix", "Cartão de crédito"): sem chave Pix nem parcelas (pedido do dono). Aparecem no PDF.</summary>
     public string[] FormasDePagamento { get; private set; } = [];
 
-    /// <summary>Quantos carros a oficina aceita agendar no mesmo dia. Quando o dia lota, fica vermelho na agenda.</summary>
-    public int CarrosPorDia { get; private set; } = 3;
-
-    public void DefinirCarrosPorDia(int carros)
-    {
-        if (carros is < 1 or > 20)
-            throw new RegraDeNegocioException("O limite de carros por dia vai de 1 a 20.");
-
-        CarrosPorDia = carros;
-    }
-
     /// <summary>Dias em que a oficina abre para agendamento. Hoje: todos, menos domingo (decisão do dono).</summary>
     public static bool AbreEm(DateOnly dia) => dia.DayOfWeek != DayOfWeek.Sunday;
 

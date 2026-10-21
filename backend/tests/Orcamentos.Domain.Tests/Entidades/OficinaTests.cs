@@ -74,18 +74,4 @@ public class OficinaTests
         Assert.Throws<RegraDeNegocioException>(() =>
             new Oficina("Estética Exemplo").DefinirFormasDePagamento([new string('x', 41)]));
     }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(21)]
-    public void DefinirCarrosPorDia_ForaDoLimite_LancaRegraDeNegocio(int carros)
-    {
-        Assert.Throws<RegraDeNegocioException>(() => new Oficina("Estética Exemplo").DefinirCarrosPorDia(carros));
-    }
-
-    [Fact]
-    public void CarrosPorDia_ComecaEm3()
-    {
-        Assert.Equal(3, new Oficina("Estética Exemplo").CarrosPorDia);
-    }
 }

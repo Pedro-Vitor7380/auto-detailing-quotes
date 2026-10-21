@@ -56,7 +56,15 @@ export function EnviarPeloWhatsApp({ orcamento: o, bloqueado, aoMudar }: Props) 
     const dados = { files: [arquivo], text: mensagem }
 
     if (navigator.canShare?.(dados)) {
-      navigator.share(dados).then(depoisDeEnviar, (erro: unknown) => {
+      // O WhatsApp do Android DESCARTA o texto quando recebe um arquivo pelo "compartilhar" (só o PDF chega;
+      // confirmado pela equipe no celular). Não há como forçar. Então a mensagem também vai para a área de
+      // transferência, no MESMO toque (writeText também exige estar "dentro do toque"): é só colar na conversa.
+      const copiou = navigator.clipboard?.writeText(mensagem).then(() => true, () => false) ?? Promise.resolve(false)
+      navigator.share(dados).then(async () => {
+        if (await copiou)
+          setAviso('A mensagem foi copiada. Se ela não aparecer no WhatsApp, toque e segure no campo de texto e escolha "Colar".')
+        depoisDeEnviar()
+      }, (erro: unknown) => {
         // AbortError = a pessoa fechou o "compartilhar" sem escolher. Não é erro, e o status não muda.
         if (!(erro instanceof DOMException && erro.name === 'AbortError'))
           setAviso('Não foi possível abrir o compartilhamento. Use o botão PDF e envie o arquivo pelo WhatsApp.')

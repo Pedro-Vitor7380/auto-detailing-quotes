@@ -9,6 +9,9 @@ import { AlertaDeErro } from '../components/formulario'
 import { diaPorExtenso } from '../lib/calendario'
 import { formatarMoeda, formatarPlaca } from '../lib/formatacao'
 
+/** "2026-10-22" → "22/10" */
+const formatarDiaCurto = (iso: string) => `${iso.slice(8)}/${iso.slice(5, 7)}`
+
 const nomeDoMes = (ano: number, mes: number) =>
   new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
@@ -56,7 +59,11 @@ export function InicioPage() {
       <section className="mt-6">
         <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">Agenda</h2>
         <div className="mt-2 grid gap-4 lg:grid-cols-[minmax(0,26rem)_1fr]">
-          <CalendarioDaAgenda modo="ver" selecionado={diaAberto?.data} aoTocarDia={(dia) => setDiaAberto(dia.data === diaAberto?.data ? null : dia)} />
+          <CalendarioDaAgenda
+            modo="ver"
+            periodo={{ de: diaAberto?.data ?? null, ate: diaAberto?.data ?? null }}
+            aoTocarDia={(dia) => setDiaAberto(dia.data === diaAberto?.data ? null : dia)}
+          />
           {diaAberto && <CarrosDoDia dia={diaAberto} />}
         </div>
       </section>
@@ -122,6 +129,12 @@ function CarrosDoDia({ dia }: { dia: DiaDaAgenda }) {
                 <span className="font-medium">{c.clienteNome}</span>
                 <span className="text-sm text-slate-500">
                   <span className="font-mono">{formatarPlaca(c.placa)}</span> {c.modelo} · {c.numero}
+                </span>
+                {/* O período inteiro, e se neste dia o carro chega ou é entregue */}
+                <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                  {c.de !== c.ate && <span>{formatarDiaCurto(c.de)} → {formatarDiaCurto(c.ate)}</span>}
+                  {dia.data === c.de && <span className="rounded-full bg-sky-100 px-2 py-0.5 font-semibold text-sky-900">chega</span>}
+                  {dia.data === c.ate && <span className="rounded-full bg-green-100 px-2 py-0.5 font-semibold text-green-900">entrega</span>}
                 </span>
               </Link>
             </li>

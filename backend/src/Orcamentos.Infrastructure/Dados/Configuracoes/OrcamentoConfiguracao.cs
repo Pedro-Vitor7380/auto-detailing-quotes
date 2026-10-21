@@ -20,7 +20,7 @@ public class OrcamentoConfiguracao : IEntityTypeConfiguration<Orcamento>
         // O número não se repete na oficina. Quem garante é o ContadorDeOrcamentos; o índice é a última linha de defesa.
         builder.HasIndex(o => new { o.OficinaId, o.Ano, o.Sequencial }).IsUnique();
         builder.HasIndex(o => new { o.OficinaId, o.Status });
-        builder.HasIndex(o => new { o.OficinaId, o.DataAgendada }); // a agenda conta os carros de cada dia
+        builder.HasIndex(o => new { o.OficinaId, o.AgendadoDe, o.AgendadoAte }); // a agenda busca os períodos que cruzam o mês
 
         builder.HasOne<Oficina>().WithMany().HasForeignKey(o => o.OficinaId).OnDelete(DeleteBehavior.Restrict);
 

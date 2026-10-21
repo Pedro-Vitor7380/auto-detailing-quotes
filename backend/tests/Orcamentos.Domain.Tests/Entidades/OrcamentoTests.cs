@@ -348,6 +348,7 @@ public class OrcamentoTests
     }
 
     // ===== Agendamento =====
+    // Datas de referência: 19/10/2026 é segunda-feira; 25/10/2026 é domingo.
 
     private static Orcamento Aprovado()
     {
@@ -358,25 +359,46 @@ public class OrcamentoTests
     }
 
     [Fact]
-    public void Agendar_Aprovado_GuardaODia()
+    public void Agendar_Periodo_GuardaInicioEFim()
     {
         var orcamento = Aprovado();
-        var terca = new DateOnly(2026, 10, 20);
 
-        orcamento.Agendar(terca, Hoje);
+        orcamento.Agendar(new DateOnly(2026, 10, 22), new DateOnly(2026, 10, 24), Hoje);
 
-        Assert.Equal(terca, orcamento.DataAgendada);
+        Assert.Equal(new DateOnly(2026, 10, 22), orcamento.AgendadoDe);
+        Assert.Equal(new DateOnly(2026, 10, 24), orcamento.AgendadoAte);
     }
 
     [Fact]
-    public void Agendar_DeNovo_Reagenda()
+    public void Agendar_UmDiaSo_InicioIgualAoFim()
     {
         var orcamento = Aprovado();
-        orcamento.Agendar(new DateOnly(2026, 10, 20), Hoje);
 
-        orcamento.Agendar(new DateOnly(2026, 10, 22), Hoje);
+        orcamento.Agendar(Hoje, Hoje, Hoje);
 
-        Assert.Equal(new DateOnly(2026, 10, 22), orcamento.DataAgendada);
+        Assert.Equal(orcamento.AgendadoDe, orcamento.AgendadoAte);
+    }
+
+    [Fact]
+    public void Agendar_PodePassarPorUmDomingo()
+    {
+        var orcamento = Aprovado();
+
+        orcamento.Agendar(new DateOnly(2026, 10, 23), new DateOnly(2026, 10, 27), Hoje); // sexta a terça
+
+        Assert.Equal(new DateOnly(2026, 10, 27), orcamento.AgendadoAte);
+    }
+
+    [Theory]
+    [InlineData(2026, 10, 25, 2026, 10, 27)] // começa no domingo
+    [InlineData(2026, 10, 23, 2026, 10, 25)] // termina no domingo
+    [InlineData(2026, 10, 24, 2026, 10, 22)] // fim antes do início
+    [InlineData(2026, 10, 18, 2026, 10, 20)] // começa no passado
+    [InlineData(2026, 10, 20, 2026, 12, 20)] // mais de 60 dias
+    public void Agendar_PeriodoInvalido_LancaRegraDeNegocio(int a1, int m1, int d1, int a2, int m2, int d2)
+    {
+        Assert.Throws<RegraDeNegocioException>(() =>
+            Aprovado().Agendar(new DateOnly(a1, m1, d1), new DateOnly(a2, m2, d2), Hoje));
     }
 
     [Fact]
@@ -385,43 +407,30 @@ public class OrcamentoTests
         var rascunho = Criar();
         rascunho.AdicionarAvulso("Serviço", 1, 100m);
 
-        Assert.Throws<RegraDeNegocioException>(() => rascunho.Agendar(new DateOnly(2026, 10, 20), Hoje));
+        Assert.Throws<RegraDeNegocioException>(() => rascunho.Agendar(Hoje, Hoje, Hoje));
     }
 
     [Fact]
-    public void Agendar_NoPassado_LancaRegraDeNegocio()
-    {
-        Assert.Throws<RegraDeNegocioException>(() => Aprovado().Agendar(Hoje.AddDays(-1), Hoje));
-    }
-
-    [Fact]
-    public void Agendar_NoDomingo_LancaRegraDeNegocio()
-    {
-        var domingo = new DateOnly(2026, 10, 25);
-        Assert.Equal(DayOfWeek.Sunday, domingo.DayOfWeek);
-
-        Assert.Throws<RegraDeNegocioException>(() => Aprovado().Agendar(domingo, Hoje));
-    }
-
-    [Fact]
-    public void Agendar_Hoje_EPermitido()
+    public void Agendar_DeNovo_Reagenda()
     {
         var orcamento = Aprovado();
+        orcamento.Agendar(new DateOnly(2026, 10, 20), new DateOnly(2026, 10, 21), Hoje);
 
-        orcamento.Agendar(Hoje, Hoje); // 19/10/2026 é segunda-feira
+        orcamento.Agendar(new DateOnly(2026, 10, 27), new DateOnly(2026, 10, 30), Hoje);
 
-        Assert.Equal(Hoje, orcamento.DataAgendada);
+        Assert.Equal((new DateOnly(2026, 10, 27), new DateOnly(2026, 10, 30)), (orcamento.AgendadoDe!.Value, orcamento.AgendadoAte!.Value));
     }
 
     [Fact]
-    public void CancelarAgendamento_LimpaODia_ESemAgendamentoLanca()
+    public void CancelarAgendamento_LimpaOPeriodo_ESemAgendamentoLanca()
     {
         var orcamento = Aprovado();
         Assert.Throws<RegraDeNegocioException>(orcamento.CancelarAgendamento);
 
-        orcamento.Agendar(new DateOnly(2026, 10, 20), Hoje);
+        orcamento.Agendar(new DateOnly(2026, 10, 20), new DateOnly(2026, 10, 22), Hoje);
         orcamento.CancelarAgendamento();
 
-        Assert.Null(orcamento.DataAgendada);
+        Assert.Null(orcamento.AgendadoDe);
+        Assert.Null(orcamento.AgendadoAte);
     }
 }
