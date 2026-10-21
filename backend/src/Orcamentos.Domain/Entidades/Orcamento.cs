@@ -33,8 +33,11 @@ public class Orcamento : EntidadeDaOficina
     public DateTimeOffset? AprovadoEm { get; private set; }
     public DateTimeOffset? RecusadoEm { get; private set; }
 
-    /// <summary>Dia em que o carro vem para o serviço (combinado com o cliente depois da aprovação).</summary>
-    public DateOnly? DataAgendada { get; private set; }
+    /// <summary>Dia em que o carro chega para o serviço (combinado com o cliente depois da aprovação).</summary>
+    public DateOnly? AgendadoDe { get; private set; }
+
+    /// <summary>Dia da entrega. Igual ao AgendadoDe quando o serviço cabe num dia só.</summary>
+    public DateOnly? AgendadoAte { get; private set; }
 
     public IReadOnlyCollection<ItemOrcamento> Itens => _itens.AsReadOnly();
 
@@ -232,28 +235,37 @@ public class Orcamento : EntidadeDaOficina
 
     // ===== Agendamento (só depois de aprovado) =====
 
+    public const int MaximoDeDiasAgendados = 60;
+
     /// <summary>
-    /// Marca o dia do serviço. Reagendar é chamar de novo com outro dia.
-    /// O limite de carros por dia precisa do banco (contar os outros agendamentos), então fica no endpoint.
+    /// Marca o período do serviço: o carro chega em "de" e é entregue em "ate" (pedido da equipe: o serviço
+    /// quase nunca cabe num dia só). Reagendar é chamar de novo. Sem limite de carros por dia (decisão do dono).
+    /// O carro chega e sai em dia aberto, mas pode FICAR num domingo no meio do período.
     /// </summary>
-    public void Agendar(DateOnly dia, DateOnly hoje)
+    public void Agendar(DateOnly de, DateOnly ate, DateOnly hoje)
     {
         if (Status != StatusDoOrcamento.Aprovado)
             throw new RegraDeNegocioException("Só um orçamento aprovado pode ser agendado.");
-        if (dia < hoje)
-            throw new RegraDeNegocioException("Escolha um dia de hoje em diante.");
-        if (!Oficina.AbreEm(dia))
-            throw new RegraDeNegocioException("A oficina não abre neste dia.");
+        if (de < hoje)
+            throw new RegraDeNegocioException("Escolha um início de hoje em diante.");
+        if (ate < de)
+            throw new RegraDeNegocioException("O último dia não pode ser antes do primeiro.");
+        if (ate.DayNumber - de.DayNumber + 1 > MaximoDeDiasAgendados)
+            throw new RegraDeNegocioException($"O período pode ter no máximo {MaximoDeDiasAgendados} dias.");
+        if (!Oficina.AbreEm(de) || !Oficina.AbreEm(ate))
+            throw new RegraDeNegocioException("O carro precisa chegar e sair num dia em que a oficina abre.");
 
-        DataAgendada = dia;
+        AgendadoDe = de;
+        AgendadoAte = ate;
     }
 
     public void CancelarAgendamento()
     {
-        if (DataAgendada is null)
+        if (AgendadoDe is null)
             throw new RegraDeNegocioException("Este orçamento não tem agendamento.");
 
-        DataAgendada = null;
+        AgendadoDe = null;
+        AgendadoAte = null;
     }
 
     // ===== Regras auxiliares =====

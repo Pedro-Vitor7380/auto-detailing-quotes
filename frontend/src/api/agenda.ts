@@ -7,17 +7,18 @@ export interface CarroAgendado {
   clienteNome: string
   placa: string
   modelo: string
+  de: string // dia em que o carro chega
+  ate: string // dia da entrega
 }
 
 export interface DiaDaAgenda {
   data: string // "2026-10-27"
   aberto: boolean // false: domingo ou dia que já passou
-  ocupados: number
+  ocupados: number // carros na oficina nesse dia (todos os períodos que passam por ele)
   carros: CarroAgendado[]
 }
 
 export interface Agenda {
-  carrosPorDia: number
   dias: DiaDaAgenda[]
 }
 

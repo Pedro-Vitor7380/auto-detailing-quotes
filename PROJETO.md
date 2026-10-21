@@ -79,9 +79,9 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
    - Duplicar um orçamento.
 8. **Faturamento previsto**: total dos orçamentos aprovados no mês. *(É o primeiro item a sair se o prazo apertar.)*
 9. **Agenda** *(pedido da equipe, 20/10/2026)*:
-   - Depois de aprovado, o orçamento é **agendado**: escolhe-se um dia no calendário, pergunta-se ao cliente pelo WhatsApp ("Temos a terça-feira, 27/10, disponível... Podemos agendar?") e confirma-se. Dá para reagendar e cancelar.
-   - Limite de **carros por dia** configurável (começa em 3). **Domingo fechado.** Não se agenda no passado nem em dia lotado.
-   - Cores: **azul claro** = livre · **verde** = 1 carro · **laranja** = 2 · **vermelho** = lotado (3) · **azul escuro** = dia escolhido · cinza = fechado.
+   - Depois de aprovado, o orçamento é **agendado por período** (o carro chega num dia e é entregue em outro; um dia só também vale): toca-se no 1º e no último dia, pergunta-se ao cliente pelo WhatsApp ("Temos de segunda-feira, 26/10, a sexta-feira, 30/10 disponível... Podemos agendar?") e confirma-se. Dá para reagendar e cancelar.
+   - **Sem limite de carros por dia** *(revisado em 21/10/2026: a oficina chega a ter 6 carros ao mesmo tempo)*. **Domingo fechado**: o carro não chega nem sai no domingo, mas pode ficar. Não se agenda no passado.
+   - Cada dia do período conta o carro. Cores: **azul claro** = livre · **verde** = 1 carro · **laranja** = 2 · **vermelho** = 3 ou mais (aviso, não bloqueia) · **azul escuro** = período escolhido · cinza = fechado.
    - No **Início**, o calendário vem **antes** do faturamento; tocar num dia mostra os carros agendados.
 
 ### Fora do MVP (talvez no futuro)
@@ -122,7 +122,7 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
 Todas as tabelas de negócio têm `OficinaId`, para que o sistema já nasça preparado para várias oficinas.
 
 ```
-Oficina       (Id, Nome, CNPJ, Endereco, Telefone, Logo, FormasDePagamento, CarrosPorDia)
+Oficina       (Id, Nome, CNPJ, Endereco, Telefone, Logo, FormasDePagamento)
 Usuario       (Id, OficinaId, Nome, Email, SenhaHash)
 Cliente       (Id, OficinaId, Nome, WhatsApp)
 Veiculo       (Id, OficinaId, ClienteId, Placa, Modelo, Cor?, AnoFabricacao?)
@@ -132,7 +132,7 @@ Servico       (Id, OficinaId, CategoriaId, Nome, Descricao, PrecoMinimo, PrecoMa
 Orcamento     (Id, OficinaId, Numero, ClienteId, VeiculoId, Status,
                DescontoTipo [Valor|Percentual], DescontoValor,
                Validade, Observacoes, CriadoEm, EnviadoEm, AprovadoEm, RecusadoEm,
-               DataAgendada?)
+               AgendadoDe?, AgendadoAte?)
 ItemOrcamento (Id, OrcamentoId, ServicoId?, Descricao, Quantidade,
                PrecoCatalogo, ValorUnitario, ObservacaoEstado)
 ```
@@ -197,7 +197,7 @@ Uma camada "Aplicação" separada foi deixada de fora de propósito, para caber 
 
 1. ~~**Cores do app**~~: resolvido no passo 10 (dourado e grafite, extraídos da logo).
 2. **Lista real de serviços**: recebida em 19/10/2026 (`docs/catalogo-servicos.md`). Separado por peça, com preços estimados (*). **Provisória:** a lista definitiva será alinhada com o pessoal da oficina, que executa os serviços. Como o catálogo é editável pelo app, isso não muda o código. **Importada em produção** no passo 15 (36 serviços).
-3. **Dados da oficina para o PDF**: CNPJ, endereço e telefone (o PDF já existe, passo 21; sem esses dados, ele mostra só o nome e a logo). Preencher com o comando `alterar-oficina`.
+3. ~~**Dados da oficina para o PDF**~~: endereço e telefones (Jarbas e Cássio) cadastrados em 21/10/2026; **sem CNPJ** (decisão da oficina).
 4. ~~**Hospedagem da API**~~: resolvido no passo 11. Render Free (Docker, Virgínia) + Neon (us-east-1) + Vercel. **"Acordar" medido: 25,6 s** após 21 min parado (depois, 0,2 s por requisição).
    - **[A DEFINIR]** Aceitar o tempo, criar um "despertador" no horário de funcionamento ou pagar o plano do Render (~US$ 7/mês). Veja `docs/APRENDIZADO.md`, passo 11e.
 5. **Testes automatizados**: definir quanto testar no MVP (sugestão: testes de unidade das regras de preço e desconto).

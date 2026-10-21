@@ -29,13 +29,14 @@ public record OrcamentoResponse(
     string? Cor, int? AnoFabricacao, List<ItemResponse> Itens, decimal Subtotal, TipoDeDesconto DescontoTipo, decimal DescontoValor,
     decimal ValorDoDesconto, decimal Total, DateOnly Validade, string? Observacoes,
     DateTimeOffset CriadoEm, DateTimeOffset? EnviadoEm, DateTimeOffset? AprovadoEm, DateTimeOffset? RecusadoEm,
-    DateOnly? DataAgendada);
+    DateOnly? AgendadoDe, DateOnly? AgendadoAte);
 
-public record AgendarRequest(DateOnly Data);
+/// <summary>Período do serviço: chega em De, é entregue em Ate (um dia só: De = Ate).</summary>
+public record AgendarRequest(DateOnly De, DateOnly Ate);
 
 public record OrcamentoResumoResponse(
     Guid Id, string Numero, StatusDoOrcamento Status, string ClienteNome, string Placa, string Modelo,
-    decimal Total, DateOnly Validade, DateTimeOffset CriadoEm, DateOnly? DataAgendada);
+    decimal Total, DateOnly Validade, DateTimeOffset CriadoEm, DateOnly? AgendadoDe, DateOnly? AgendadoAte);
 
 public static partial class OrcamentosEndpoints
 {
@@ -59,8 +60,8 @@ public static partial class OrcamentosEndpoints
             MudarStatus(id, db, relogio, o => o.Recusar(relogio.Agora), ct)).WithSummary("Marca como recusado pelo cliente");
         grupo.MapPost("/{id:guid}/duplicar", Duplicar).WithSummary("Cria um rascunho novo com os mesmos dados");
         grupo.MapGet("/{id:guid}/pdf", Pdf).WithSummary("PDF do orçamento, para enviar ao cliente");
-        grupo.MapPost("/{id:guid}/agendar", Agendar).WithSummary("Marca (ou troca) o dia do serviço de um orçamento aprovado");
-        grupo.MapDelete("/{id:guid}/agendamento", CancelarAgendamento).WithSummary("Desmarca o dia do serviço");
+        grupo.MapPost("/{id:guid}/agendar", Agendar).WithSummary("Marca (ou troca) o período do serviço de um orçamento aprovado");
+        grupo.MapDelete("/{id:guid}/agendamento", CancelarAgendamento).WithSummary("Desmarca o período do serviço");
 
         return app;
     }
@@ -96,7 +97,7 @@ public static partial class OrcamentosEndpoints
 
         return TypedResults.Ok(orcamentos.Select(o => new OrcamentoResumoResponse(
             o.Id, o.Numero, o.Status, nomes.Clientes[o.ClienteId].Nome, nomes.Veiculos[o.VeiculoId].Placa,
-            nomes.Veiculos[o.VeiculoId].Modelo, o.Total, o.Validade, o.CriadoEm, o.DataAgendada)).ToList());
+            nomes.Veiculos[o.VeiculoId].Modelo, o.Total, o.Validade, o.CriadoEm, o.AgendadoDe, o.AgendadoAte)).ToList());
     }
 
     private static async Task<Results<Ok<OrcamentoResponse>, ProblemHttpResult>> Obter(
@@ -213,23 +214,10 @@ public static partial class OrcamentosEndpoints
         if (orcamento is null)
             return NaoEncontrado();
 
-        // Dois celulares podem tentar pegar a última vaga do dia no mesmo instante. "FOR UPDATE" trava a
-        // linha da oficina até o fim da transação: o segundo pedido ESPERA o primeiro terminar e só então
-        // conta as vagas (a mesma ideia do contador de números, passo 18).
-        await using var transacao = await db.Database.BeginTransactionAsync(ct);
-        var carrosPorDia = await db.Oficinas
-            .FromSql($"SELECT * FROM oficinas WHERE id = {orcamento.OficinaId} FOR UPDATE")
-            .Select(o => o.CarrosPorDia)
-            .SingleAsync(ct);
-
-        var ocupados = await db.Orcamentos.CountAsync(
-            o => o.DataAgendada == request.Data && o.Id != id && o.Status == StatusDoOrcamento.Aprovado, ct);
-        if (ocupados >= carrosPorDia)
-            return Problemas.Conflito($"Este dia já está lotado ({ocupados} de {carrosPorDia} carros). Escolha outro dia.");
-
-        orcamento.Agendar(request.Data, relogio.Hoje); // o Domínio confere: aprovado, não é passado, não é domingo
+        // Sem limite de carros por dia (decisão do dono, 21/10/2026): não há vaga para disputar, então a
+        // trava "FOR UPDATE" do passo 26 deixou de ser necessária. As regras ficam todas no Domínio.
+        orcamento.Agendar(request.De, request.Ate, relogio.Hoje);
         await db.SaveChangesAsync(ct);
-        await transacao.CommitAsync(ct);
         return TypedResults.Ok(await ParaResponse(db, orcamento, ct));
     }
 
@@ -346,7 +334,7 @@ public static partial class OrcamentosEndpoints
         return new OrcamentoResponse(o.Id, o.Numero, o.Status, o.PodeSerEditado,
             o.ClienteId, cliente.Nome, cliente.WhatsApp, o.VeiculoId, veiculo.Placa, veiculo.Modelo,
             veiculo.Cor, veiculo.AnoFabricacao, itens, o.Subtotal, o.DescontoTipo, o.DescontoValor, o.ValorDoDesconto, o.Total,
-            o.Validade, o.Observacoes, o.CriadoEm, o.EnviadoEm, o.AprovadoEm, o.RecusadoEm, o.DataAgendada);
+            o.Validade, o.Observacoes, o.CriadoEm, o.EnviadoEm, o.AprovadoEm, o.RecusadoEm, o.AgendadoDe, o.AgendadoAte);
     }
 
     private record NomesDoCliente(string Nome, string WhatsApp);

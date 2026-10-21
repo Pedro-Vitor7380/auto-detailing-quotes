@@ -42,3 +42,14 @@ export function mudarMes(ano: number, mes: number, quantos: number): { ano: numb
   const d = new Date(ano, mes - 1 + quantos, 1)
   return { ano: d.getFullYear(), mes: d.getMonth() + 1 }
 }
+
+/** Quantos dias tem o período, contando o primeiro e o último ("22" a "26" = 5 dias). */
+export function diasNoPeriodo(de: string, ate: string): number {
+  const dia = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8)))
+  return Math.round((dia(ate) - dia(de)) / 86_400_000) + 1
+}
+
+/** "terça-feira, 27/10" (um dia) ou "terça-feira, 22/10 → sábado, 26/10" (período). */
+export function descreverPeriodo(de: string, ate: string): string {
+  return de === ate ? diaPorExtenso(de) : `${diaPorExtenso(de)} → ${diaPorExtenso(ate)}`
+}

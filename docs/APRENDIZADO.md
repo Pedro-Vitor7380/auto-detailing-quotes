@@ -1897,3 +1897,54 @@ Esse é o tipo de erro que nenhum teste "um de cada vez" pega, e que no pátio a
 | **Concorrência**: 6 simultâneos, limite 3 | ✅ sempre 3 (sem a trava: 6) |
 | Navegador: as 5 cores, domingo, botões antes de escolher, azul escuro, mensagem do WhatsApp, confirmar, Início acima do faturamento, dia agendado verde, carros do dia, contorno no Início, reagendar, cancelar, 360 px | ✅ 18 de 18 |
 | Regressão: painel, Início, orçamento, WhatsApp | ✅ 0 falhas |
+
+## Passo 27 — Agenda por período, sem limite, mensagem copiada e dados da oficina
+
+### O que a equipe apontou depois de usar
+1. *"A frase no Android, na hora de mandar o PDF, não aparece: ele manda apenas o PDF."*
+2. *"O agendamento praticamente nunca fica um dia só"*: o carro fica, por exemplo, do dia 22 ao 26.
+3. *"O limite de carros por dia, mude para ilimitado"*: eles estão com 6 carros no momento.
+4. Os dados da oficina para o PDF: endereço e dois telefones (Jarbas e Cássio), **sem CNPJ**.
+
+### 1. A mensagem que não chega no Android
+O WhatsApp do Android **descarta o texto** quando recebe um arquivo pelo "compartilhar". O passo 22 já tinha anotado esse risco ("só um celular de verdade confirma"), e a equipe confirmou. Não existe parâmetro que force o texto junto do arquivo.
+
+**Solução:** no mesmo toque do "Enviar pelo WhatsApp", a mensagem vai também para a **área de transferência** (`navigator.clipboard.writeText`). Depois do envio, o app avisa: *"A mensagem foi copiada. Se ela não aparecer no WhatsApp, toque e segure no campo de texto e escolha Colar."* O `writeText` também exige estar "dentro do toque" (passo 22), por isso é chamado **antes** do `share`, sem `await` entre os dois.
+
+### 2. Agendamento por período
+- **Domínio:** `DataAgendada` virou **`AgendadoDe`** (dia em que o carro chega) e **`AgendadoAte`** (dia da entrega). Um dia só = `De` igual a `Ate`.
+- **Regras novas:** o fim não pode ser antes do início; no máximo 60 dias; o carro **chega e sai em dia aberto**, mas **pode ficar num domingo** no meio do período (sexta → terça é válido).
+- **Contagem:** cada dia do período conta o carro. Um carro de 26 a 30 deixa os 5 dias com "1 carro".
+- **Na agenda do mês**, um agendamento aparece se o período **cruza** o mês: começa antes do fim do mês **e** termina depois do início (`AgendadoDe <= fimDoMes && AgendadoAte >= inicioDoMes`). Um carro de 30/10 a 02/11 aparece em outubro e em novembro, e o teste confere isso.
+- **Na tela:** o 1º toque marca o dia em que o carro chega; o 2º, o da entrega. O período inteiro fica azul escuro. Tocar antes do início, ou depois de já ter os dois, recomeça. Só com o início, já dá para confirmar um dia só.
+- **Mensagem:** *"Olá, Roberta! Temos de segunda-feira, 26/10, a sexta-feira, 30/10 disponível para o serviço no Fiat Pulse (placa ZAP1B23). Podemos agendar?"*
+- **No Início**, cada carro mostra o período ("26/10 → 30/10") e as marcas **chega** (no primeiro dia) e **entrega** (no último).
+
+### 3. Sem limite de carros por dia
+O limite saiu do Domínio, do banco (`carros_por_dia`) e do `alterar-oficina`. O vermelho continua, mas agora quer dizer **"3 ou mais"**: é um **aviso** de dia cheio, e **não bloqueia**. Quem decide se cabe mais um carro é a equipe.
+
+**Consequência boa:** sem vaga para disputar, a trava `FOR UPDATE` do passo 26 **deixou de ser necessária** e saiu. A lição do passo 26 continua valendo: ela é a ferramenta certa quando **existe** um limite.
+
+### 4. Dados da oficina
+O telefone tinha limite de 20 caracteres (um número). Agora cabe **100**: *"(11) 99587-2204 (Jarbas) · (11) 96832-9874 (Cássio)"*. Endereço: *"Av. Victorio Spinuci, 458 – Jd. Promeca – Várzea Paulista/SP"*. Sem CNPJ, a linha dele não aparece no PDF (passo 21).
+
+### A migration: renomear sem perder dados
+Ao gerar `AgendaPorPeriodo`, o EF:
+- fez **`RenameColumn`** (`data_agendada` → `agendado_de`), e não "apagar e criar", que perderia os agendamentos;
+- avisou *"may result in the loss of data"* por causa da coluna `carros_por_dia`, que sai **de propósito**.
+
+O que o EF **não tem como saber**: os agendamentos que já existiam eram de um dia, então `agendado_ate` precisa ser igual ao início. Isso foi escrito à mão na migration:
+```csharp
+migrationBuilder.Sql("UPDATE orcamentos SET agendado_ate = agendado_de WHERE agendado_de IS NOT NULL;");
+```
+**Prova:** um agendamento no formato antigo (24/10), criado direto no banco local antes da migration, ficou "de 24/10 até 24/10" depois dela.
+
+### Testes feitos
+| Teste | Resultado |
+|---|---|
+| Testes de unidade (período, domingo no início/fim/meio, fim antes do início, > 60 dias, reagendar, cancelar) | ✅ 96 de 96 |
+| API: regras, 5 carros no mesmo dia (sem limite), contagem em cada dia do período, período que vira o mês, isolamento | ✅ 21 de 21 |
+| Navegador: 1º e 2º toque, os 5 dias azul escuro, "(5 dias)", mensagem do período, confirmar, Início (verde/laranja/vermelho por dia, "chega"/"entrega"), vermelho ainda escolhível | ✅ 14 de 14 |
+| Mensagem copiada ao enviar o PDF (área de transferência conferida) | ✅ |
+| PDF com os telefones e o endereço, sem CNPJ (conferido como imagem) | ✅ |
+| Regressão: orçamento e WhatsApp | ✅ 0 falhas |
