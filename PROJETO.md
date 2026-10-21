@@ -83,6 +83,10 @@ Ordem de prioridade: se o prazo apertar, os últimos itens saem primeiro.
    - **Sem limite de carros por dia** *(revisado em 21/10/2026: a oficina chega a ter 6 carros ao mesmo tempo)*. **Domingo fechado**: o carro não chega nem sai no domingo, mas pode ficar. Não se agenda no passado.
    - Cada dia do período conta o carro. Cores: **azul claro** = livre · **verde** = 1 carro · **laranja** = 2 · **vermelho** = 3 ou mais (aviso, não bloqueia) · **azul escuro** = período escolhido · cinza = fechado.
    - No **Início**, o calendário vem **antes** do faturamento; tocar num dia mostra os carros agendados.
+10. **Aviso de entrega** *(pedido da equipe, 21/10/2026; custo zero)*:
+   - Às **18h do dia anterior à entrega**, notificação no celular da equipe: *"Amanhã: 1 serviço para concluir. Fiat Pulse (ZAP1B23), Roberta. Precisa adiar ou pode avisar o cliente?"* Cada celular ativa a sua.
+   - No Início, o quadro **"Terminam amanhã"**: **Avisar cliente** (WhatsApp com *"Seu carro estará pronto amanhã"*, um toque para enviar; fica registrado para o outro celular) e **Adiar** (reagendar).
+   - O cliente **não** recebe mensagem automática: isso exigiria a API paga do WhatsApp Business. Quem avisa é a equipe, com um toque.
 
 ### Fora do MVP (talvez no futuro)
 

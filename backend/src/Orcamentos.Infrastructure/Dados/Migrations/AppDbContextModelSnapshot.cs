@@ -90,6 +90,52 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                     b.ToTable("clientes", (string)null);
                 });
 
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.InscricaoDeNotificacao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Auth")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("auth");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("endpoint");
+
+                    b.Property<Guid>("OficinaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("oficina_id");
+
+                    b.Property<string>("P256dh")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("p256dh");
+
+                    b.HasKey("Id")
+                        .HasName("pk_inscricoes_de_notificacao");
+
+                    b.HasIndex("Endpoint")
+                        .IsUnique()
+                        .HasDatabaseName("ix_inscricoes_de_notificacao_endpoint");
+
+                    b.HasIndex("OficinaId")
+                        .HasDatabaseName("ix_inscricoes_de_notificacao_oficina_id");
+
+                    b.ToTable("inscricoes_de_notificacao", (string)null);
+                });
+
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Oficina", b =>
                 {
                     b.Property<Guid>("Id")
@@ -159,6 +205,10 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                     b.Property<DateTimeOffset?>("AprovadoEm")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("aprovado_em");
+
+                    b.Property<DateTimeOffset?>("AvisoDeEntregaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("aviso_de_entrega_em");
 
                     b.Property<Guid>("ClienteId")
                         .HasColumnType("uuid")
@@ -431,6 +481,16 @@ namespace Orcamentos.Infrastructure.Dados.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_clientes_oficinas_oficina_id");
+                });
+
+            modelBuilder.Entity("Orcamentos.Domain.Entidades.InscricaoDeNotificacao", b =>
+                {
+                    b.HasOne("Orcamentos.Domain.Entidades.Oficina", null)
+                        .WithMany()
+                        .HasForeignKey("OficinaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_inscricoes_de_notificacao_oficinas_oficina_id");
                 });
 
             modelBuilder.Entity("Orcamentos.Domain.Entidades.Orcamento", b =>

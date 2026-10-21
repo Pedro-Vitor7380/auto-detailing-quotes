@@ -16,6 +16,10 @@ public record DiaDaAgenda(DateOnly Data, bool Aberto, int Ocupados, List<CarroAg
 
 public record AgendaResponse(List<DiaDaAgenda> Dias);
 
+/// <param name="AvisadoEm">Quando alguém da equipe avisou o cliente (null = ainda não avisou).</param>
+public record EntregaResponse(Guid OrcamentoId, string Numero, string ClienteNome, string ClienteWhatsApp,
+    string Placa, string Modelo, DateOnly De, DateOnly Ate, DateTimeOffset? AvisadoEm);
+
 public static class AgendaEndpoints
 {
     private const int MaximoDeDias = 62; // ~2 meses: o calendário mostra um mês por vez
@@ -25,6 +29,9 @@ public static class AgendaEndpoints
         app.MapGet("/api/agenda", Obter)
             .WithTags("Agenda")
             .WithSummary("Dias de um período com quantos carros estão na oficina (para colorir o calendário)");
+        app.MapGet("/api/agenda/entregas", Entregas)
+            .WithTags("Agenda")
+            .WithSummary("Carros com entrega num dia (padrão: amanhã), para o quadro \"Terminam amanhã\"");
         return app;
     }
 
@@ -61,5 +68,21 @@ public static class AgendaEndpoints
             .ToList();
 
         return TypedResults.Ok(new AgendaResponse(dias));
+    }
+
+    private static async Task<Ok<List<EntregaResponse>>> Entregas(AppDbContext db, Relogio relogio, CancellationToken ct, DateOnly? dia = null)
+    {
+        var entrega = dia ?? relogio.Hoje.AddDays(1);
+        var lista = await (
+            from o in db.Orcamentos
+            where o.Status == StatusDoOrcamento.Aprovado && o.AgendadoAte == entrega
+            join c in db.Clientes on o.ClienteId equals c.Id
+            join v in db.Veiculos on o.VeiculoId equals v.Id
+            orderby o.Sequencial
+            select new { o.Id, o.Ano, o.Sequencial, c.Nome, c.WhatsApp, v.Placa, v.Modelo, De = o.AgendadoDe!.Value, Ate = o.AgendadoAte!.Value, o.AvisoDeEntregaEm })
+            .ToListAsync(ct);
+
+        return TypedResults.Ok(lista.Select(e => new EntregaResponse(e.Id, Orcamento.FormatarNumero(e.Ano, e.Sequencial), e.Nome,
+            e.WhatsApp, e.Placa, e.Modelo, e.De, e.Ate, e.AvisoDeEntregaEm)).ToList());
     }
 }

@@ -4,6 +4,7 @@ using Orcamentos.Api.Features.Agenda;
 using Orcamentos.Api.Features.Auth;
 using Orcamentos.Api.Features.Catalogo;
 using Orcamentos.Api.Features.Clientes;
+using Orcamentos.Api.Features.Notificacoes;
 using Orcamentos.Api.Features.Orcamentos;
 using Orcamentos.Api.Features.Painel;
 using Orcamentos.Infrastructure;
@@ -21,6 +22,7 @@ Func<IServiceProvider, Task<int>>? comando = args.FirstOrDefault() switch
     // Este recebe o caminho do arquivo (2º argumento): a lambda "encaixa" o argumento extra no mesmo formato.
     ImportarCatalogoComando.Nome => servicos => ImportarCatalogoComando.ExecutarAsync(servicos, args.ElementAtOrDefault(1)),
     DefinirLogoComando.Nome => servicos => DefinirLogoComando.ExecutarAsync(servicos, args.ElementAtOrDefault(1)),
+    GerarChavesDeNotificacaoComando.Nome => _ => Task.FromResult(GerarChavesDeNotificacaoComando.Executar()),
     _ => null,
 };
 
@@ -95,6 +97,7 @@ app.MapClientesEndpoints();
 app.MapOrcamentosEndpoints();
 app.MapPainelEndpoints();
 app.MapAgendaEndpoints();
+app.MapNotificacoesEndpoints();
 
 await app.RunAsync();
 return 0;

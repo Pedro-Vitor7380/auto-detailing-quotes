@@ -64,6 +64,8 @@ export default defineConfig({
         navigateFallback: '/index.html',
         // ...exceto a API: dados sempre vêm do servidor, nunca do cache.
         navigateFallbackDenylist: [/^\/api\//],
+        // Acrescenta ao service worker o código que recebe e mostra as notificações (public/notificacoes-sw.js).
+        importScripts: ['notificacoes-sw.js'],
       },
     }),
   ],
